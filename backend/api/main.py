@@ -223,17 +223,27 @@ def predict(event_type: str = "thunderstorm", forecast_hour: int = 2, lat: float
                     "value": round(val, 3),
                 })
 
+    r, c = latlon_to_grid(lat, lon)
+    WINDOW = 2 # ~20-30km radius around the selected point
+    r_start, r_end = max(0, r - WINDOW), min(310, r + WINDOW + 1)
+    c_start, c_end = max(0, c - WINDOW), min(310, c + WINDOW + 1)
+
+    def get_local_max(grid):
+        if isinstance(grid, np.ndarray) and grid.ndim == 2:
+            return float(grid[r_start:r_end, c_start:c_end].max())
+        return 0.0
+
     return {
         "event_type": event_type,
         "forecast_hour": forecast_hour,
         "heatmap": heatmap_data,
         "lat_range": [lats[0], lats[-1]],
         "lon_range": [lons[0], lons[-1]],
-        "max_probability": round(float(active_grid.max()), 3),
+        "max_probability": round(get_local_max(active_grid), 3),
         "all_max_risks": {
-            "flash_flood": round(float(all_grids.get("flash_flood", np.zeros((1,))).max()), 3),
-            "cloudburst": round(float(all_grids.get("cloudburst", np.zeros((1,))).max()), 3),
-            "thunderstorm": round(float(all_grids.get("thunderstorm", np.zeros((1,))).max()), 3)
+            "flash_flood": round(get_local_max(all_grids.get("flash_flood", np.zeros((310, 310)))), 3),
+            "cloudburst": round(get_local_max(all_grids.get("cloudburst", np.zeros((310, 310)))), 3),
+            "thunderstorm": round(get_local_max(all_grids.get("thunderstorm", np.zeros((310, 310)))), 3)
         }
     }
 
