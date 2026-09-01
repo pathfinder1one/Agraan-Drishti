@@ -1,0 +1,13 @@
+xarray
+netCDF4
+dask
+numpy
+pandas
+scipy
+torch
+torchvision
+scikit-learn
+fastapi
+uvicorn[standard]
+pydantic
+websockets

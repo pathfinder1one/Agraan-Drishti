@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+venv/
+env/
+.env
+.venv/
+
+# PyTorch model files & data
+*.pt
+*.pth
+checkpoints/
+*.ckpt
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/build/
+.vite/
+*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# OS
+desktop.ini
+
+# Misc
+.agents/
+.gemini/
+
+# Large Weather Dataset (14GB)
+dataset_weather/
