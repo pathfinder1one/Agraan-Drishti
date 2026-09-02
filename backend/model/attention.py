@@ -8,20 +8,14 @@ import torch.nn.functional as F
 
 
 class SpatialAttention(nn.Module):
-    """Multi-head spatial attention on ConvLSTM output."""
+    """Spatial attention (CBAM style) using pooling + Conv, avoids O(N^2) memory explosion."""
 
-    def __init__(self, channels, num_heads=4):
+    def __init__(self, channels, num_heads=None):
         super().__init__()
-        self.num_heads = num_heads
-        self.head_dim = channels // num_heads
-        assert channels % num_heads == 0
-
-        self.q_proj = nn.Conv2d(channels, channels, 1)
-        self.k_proj = nn.Conv2d(channels, channels, 1)
-        self.v_proj = nn.Conv2d(channels, channels, 1)
-        self.out_proj = nn.Conv2d(channels, channels, 1)
-        self.norm = nn.LayerNorm([channels])
-        self.scale = self.head_dim ** -0.5
+        # CBAM spatial attention combines avg and max pooling across channels
+        # followed by a 7x7 convolution to create a 1-channel spatial attention mask.
+        self.conv = nn.Conv2d(2, 1, kernel_size=7, padding=3)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         """
@@ -30,23 +24,18 @@ class SpatialAttention(nn.Module):
         Returns:
             attended: (batch, channels, H, W)
         """
-        B, C, H, W = x.shape
-
-        q = self.q_proj(x).reshape(B, self.num_heads, self.head_dim, H * W)
-        k = self.k_proj(x).reshape(B, self.num_heads, self.head_dim, H * W)
-        v = self.v_proj(x).reshape(B, self.num_heads, self.head_dim, H * W)
-
-        # Attention: (B, heads, HW, HW)
-        attn = torch.matmul(q.transpose(-2, -1), k) * self.scale
-        attn = F.softmax(attn, dim=-1)
-
-        # Apply attention to values
-        out = torch.matmul(v, attn.transpose(-2, -1))  # (B, heads, head_dim, HW)
-        out = out.reshape(B, C, H, W)
-        out = self.out_proj(out)
-
-        # Residual connection
-        return x + out
+        # Channel-wise max and avg pooling: (B, 1, H, W)
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        
+        # Concatenate along channel dimension: (B, 2, H, W)
+        scale = torch.cat([avg_out, max_out], dim=1)
+        
+        # Convolve to (B, 1, H, W) and apply sigmoid
+        scale = self.sigmoid(self.conv(scale))
+        
+        # Apply spatial mask to original features
+        return x * scale
 
 
 class ChannelAttention(nn.Module):

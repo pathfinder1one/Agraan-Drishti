@@ -19,7 +19,7 @@ MODEL_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 # ──────────────────────────────────────────────
-# Grid (IMDAA 0.108° -> ~12km High-Res)
+# Grid (Dataset is physically 32x32)
 # ──────────────────────────────────────────────
 GRID_SIZE = 32
 GRID_RESOLUTION = 0.108
@@ -46,7 +46,7 @@ EPSILON = Rd / Rv
 # ──────────────────────────────────────────────
 FEATURE_CHANNELS = [
     "cape", "cin", "iwv", "iwv_rate", "convergence",
-    "wind_shear", "mslp_gradient", "precip", "t2m_anomaly", "rh_column",
+    "wind_shear", "mslp_gradient", "precip", "t2m_anomaly", "rh_column"
 ]
 NUM_FEATURES = len(FEATURE_CHANNELS)
 

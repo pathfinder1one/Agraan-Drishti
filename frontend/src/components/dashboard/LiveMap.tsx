@@ -31,12 +31,12 @@ function HeatmapLayer({ data, activeLayer }: { data: any[], activeLayer: string 
       map.removeLayer(heatLayerRef.current)
     }
 
-    const points = data.filter(p => p.value > 0.1).map(p => [p.lat, p.lon, p.value * 1.5])
+    const points = data.map(p => [p.lat, p.lon, p.value])
 
     const gradients: Record<string, any> = {
-      thunderstorm: { 0.4: '#3b82f6', 0.6: '#eab308', 0.8: '#f97316', 1.0: '#ef4444' },
-      cloudburst: { 0.4: '#6366f1', 0.6: '#a855f7', 0.8: '#ec4899', 1.0: '#ef4444' },
-      flash_flood: { 0.2: '#3b82f6', 0.4: '#22c55e', 0.7: '#eab308', 1.0: '#ef4444' }
+      thunderstorm: { 0.1: '#0000ff', 0.3: '#00ff00', 0.5: '#ffff00', 0.7: '#ffa500', 0.85: '#ff0000', 0.95: '#800080', 1.0: '#ffffff' },
+      cloudburst:   { 0.1: '#0000ff', 0.3: '#00ff00', 0.5: '#ffff00', 0.7: '#ffa500', 0.85: '#ff0000', 0.95: '#800080', 1.0: '#ffffff' },
+      flash_flood:  { 0.1: '#0000ff', 0.3: '#00ff00', 0.5: '#ffff00', 0.7: '#ffa500', 0.85: '#ff0000', 0.95: '#800080', 1.0: '#ffffff' }
     }
 
     // fallback to old name mapping if needed
@@ -47,8 +47,8 @@ function HeatmapLayer({ data, activeLayer }: { data: any[], activeLayer: string 
       const heat = (window as any).L.heatLayer(points, {
         radius: 35,
         blur: 25,
-        maxZoom: 10,
-        max: 1.0,
+        maxZoom: 12,
+        max: 3.5,
         gradient: gradients[layerKey]
       })
 

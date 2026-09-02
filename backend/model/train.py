@@ -22,7 +22,6 @@ from backend.model.network import SevereWeatherNet
 
 class MultiTaskLoss(nn.Module):
     """Combined weighted BCE loss across thunderstorm, cloudburst, flash-flood heads."""
-
     def __init__(self):
         super().__init__()
         self.bce = nn.BCELoss(reduction="mean")
@@ -40,16 +39,26 @@ class MultiTaskLoss(nn.Module):
         """
         loss = 0
         losses = {}
-        for i, (event_type, weight) in enumerate(self.weights.items()):
-            pred = predictions[event_type]
-            target = targets[:, i]
-            l = self.bce(pred, target) * weight
-            losses[event_type] = l.item()
-            loss += l
+        
+        # Disable autocast and cast to float32 to safely use BCELoss
+        with torch.amp.autocast(device_type="cuda" if "cuda" in str(targets.device) else "cpu", enabled=False):
+            for i, (event_type, weight) in enumerate(self.weights.items()):
+                # Cast predictions and targets to float32 specifically for BCELoss
+                pred = predictions[event_type].to(torch.float32)
+                target = targets[:, i].to(torch.float32)
+                
+                # Sanitize to prevent CUDA assert (input_val >= 0 && <= 1)
+                pred = torch.nan_to_num(pred, nan=0.0)
+                pred = torch.clamp(pred, min=0.0, max=1.0)
+                
+                l = self.bce(pred, target) * weight
+                losses[event_type] = l.item()
+                loss += l
+                
         return loss, losses
 
 
-def train_epoch(model, loader, optimizer, criterion, device):
+def train_epoch(model, loader, optimizer, criterion, device, scaler):
     model.train()
     total_loss = 0
     n_batches = 0
@@ -57,11 +66,23 @@ def train_epoch(model, loader, optimizer, criterion, device):
     for X, y, terrain in loader:
         X, y, terrain = X.to(device), y.to(device), terrain.to(device)
         optimizer.zero_grad()
-        preds = model(X, terrain)
-        loss, _ = criterion(preds, y)
-        loss.backward()
+        
+        # FP16 Mixed Precision Forward Pass
+        with torch.amp.autocast(device_type="cuda" if "cuda" in str(device) else "cpu"):
+            preds = model(X, terrain)
+            loss, _ = criterion(preds, y)
+        
+        # Scaled Backward Pass
+        scaler.scale(loss).backward()
+        
+        # Unscale gradients before clipping
+        scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
+        
+        # Step optimizer and update scaler
+        scaler.step(optimizer)
+        scaler.update()
+        
         total_loss += loss.item()
         n_batches += 1
 
@@ -77,8 +98,12 @@ def validate(model, loader, criterion, device):
 
     for X, y, terrain in loader:
         X, y, terrain = X.to(device), y.to(device), terrain.to(device)
-        preds = model(X, terrain)
-        loss, losses = criterion(preds, y)
+        
+        # FP16 Mixed Precision Validation
+        with torch.amp.autocast(device_type="cuda" if "cuda" in str(device) else "cpu"):
+            preds = model(X, terrain)
+            loss, losses = criterion(preds, y)
+            
         total_loss += loss.item()
         for k, v in losses.items():
             all_losses[k] += v
@@ -88,17 +113,17 @@ def validate(model, loader, criterion, device):
     return total_loss / n, {k: v / n for k, v in all_losses.items()}
 
 
-def train_model(train_dataset, val_dataset, device="cpu"):
+def train_model(train_loader, val_loader, device="cpu"):
     """Full training pipeline."""
     print(f"Training on {device}")
-
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     model = SevereWeatherNet().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS)
     criterion = MultiTaskLoss()
+    
+    # Initialize Gradient Scaler for FP16
+    scaler = torch.amp.GradScaler(enabled=("cuda" in str(device)))
 
     best_val_loss = float("inf")
     patience_counter = 0
@@ -106,7 +131,7 @@ def train_model(train_dataset, val_dataset, device="cpu"):
 
     for epoch in range(1, NUM_EPOCHS + 1):
         t0 = time.time()
-        train_loss = train_epoch(model, train_loader, optimizer, criterion, device)
+        train_loss = train_epoch(model, train_loader, optimizer, criterion, device, scaler)
         val_loss, val_losses = validate(model, val_loader, criterion, device)
         scheduler.step()
         elapsed = time.time() - t0
@@ -128,7 +153,7 @@ def train_model(train_dataset, val_dataset, device="cpu"):
             best_val_loss = val_loss
             patience_counter = 0
             torch.save(model.state_dict(), MODEL_DIR / "best_model.pth")
-            print(f"  ✓ Saved best model (val_loss={val_loss:.4f})")
+            print(f"  [OK] Saved best model (val_loss={val_loss:.4f})")
         else:
             patience_counter += 1
 
@@ -143,3 +168,18 @@ def train_model(train_dataset, val_dataset, device="cpu"):
     # Load best model
     model.load_state_dict(torch.load(MODEL_DIR / "best_model.pth", weights_only=True))
     return model, history
+
+if __name__ == "__main__":
+    from backend.model.dataset import get_balanced_dataloader
+    from config import PROJECT_ROOT
+    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    nc_file = str(PROJECT_ROOT / "dataset_weather" / "IMDAA_merged_1.08_1990_2020.nc")
+    
+    print("Initializing Balanced DataLoader (1:4 Ratio)...")
+    train_dataset, train_loader = get_balanced_dataloader(nc_file, is_train=True)
+    val_dataset, val_loader = get_balanced_dataloader(nc_file, is_train=False) # Simplified for demo
+    
+    print("Starting Training Process...")
+    train_model(train_loader, val_loader, device=device)
+    print("Training Complete! Models saved in checkpoints/")

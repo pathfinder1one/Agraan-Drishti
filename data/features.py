@@ -129,6 +129,8 @@ def compute_mslp_gradient(prmsl):
 def compute_t2m_anomaly(t2m):
     clim = t2m.groupby("time.dayofyear").mean(dim="time")
     anom = t2m.groupby("time.dayofyear") - clim
+    anom = anom.transpose("time", "latitude", "longitude")
+    anom = anom.drop_vars("dayofyear", errors="ignore")
     anom.attrs = {"units": "K", "long_name": "2m Temp Anomaly"}
     return anom
 
