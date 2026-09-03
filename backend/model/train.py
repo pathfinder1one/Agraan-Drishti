@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import sys
 import time
+from contextlib import nullcontext
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import (
@@ -47,8 +48,10 @@ class MultiTaskLoss(nn.Module):
                 pred = predictions[event_type].to(torch.float32)
                 target = targets[:, i].to(torch.float32)
                 
-                # Sanitize to prevent CUDA assert (input_val >= 0 && <= 1)
-                pred = torch.nan_to_num(pred, nan=0.0)
+                if not torch.isfinite(pred).all():
+                    raise FloatingPointError(f"Non-finite {event_type} prediction before loss calculation")
+                if not torch.isfinite(target).all():
+                    raise FloatingPointError(f"Non-finite {event_type} target before loss calculation")
                 pred = torch.clamp(pred, min=0.0, max=1.0)
                 
                 l = self.bce(pred, target) * weight
@@ -67,10 +70,16 @@ def train_epoch(model, loader, optimizer, criterion, device, scaler):
         X, y, terrain = X.to(device), y.to(device), terrain.to(device)
         optimizer.zero_grad()
         
-        # FP16 Mixed Precision Forward Pass
-        with torch.amp.autocast(device_type="cuda" if "cuda" in str(device) else "cpu"):
+        use_amp = str(device).startswith("cuda")
+        # Mixed precision is useful on CUDA, but CPU autocast can introduce
+        # avoidable numerical differences in this ConvLSTM pipeline.
+        amp_context = torch.amp.autocast(device_type="cuda") if use_amp else nullcontext()
+        with amp_context:
             preds = model(X, terrain)
             loss, _ = criterion(preds, y)
+
+        if not torch.isfinite(loss):
+            raise FloatingPointError("Non-finite training loss; refusing to update the model")
         
         # Scaled Backward Pass
         scaler.scale(loss).backward()
@@ -99,8 +108,9 @@ def validate(model, loader, criterion, device):
     for X, y, terrain in loader:
         X, y, terrain = X.to(device), y.to(device), terrain.to(device)
         
-        # FP16 Mixed Precision Validation
-        with torch.amp.autocast(device_type="cuda" if "cuda" in str(device) else "cpu"):
+        use_amp = str(device).startswith("cuda")
+        amp_context = torch.amp.autocast(device_type="cuda") if use_amp else nullcontext()
+        with amp_context:
             preds = model(X, terrain)
             loss, losses = criterion(preds, y)
             
@@ -149,6 +159,10 @@ def train_model(train_loader, val_loader, device="cpu"):
               f"FF: {val_losses['flash_flood']:.4f} | {elapsed:.1f}s")
 
         # Checkpointing
+        state_is_finite = all(torch.isfinite(value).all().item() for value in model.state_dict().values() if torch.is_tensor(value))
+        if not state_is_finite:
+            raise FloatingPointError("Non-finite model state; refusing to save checkpoint")
+
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0

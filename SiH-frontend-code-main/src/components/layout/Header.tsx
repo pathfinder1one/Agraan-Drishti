@@ -53,16 +53,15 @@ export function Header() {
         <Button variant="ghost" size="sm" onClick={() => setDarkMode((d) => !d)}>
           <Moon size={13} /> {darkMode ? "Dark mode" : "Light mode"}
         </Button>
-        <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
-          <Globe2 size={13} /> Multi-language
-        </Button>
-        <Button variant="ghost" size="sm" className="relative">
+        {/* Google Translate Widget Container */}
+        <div className="hidden sm:inline-flex items-center" id="google_translate_element" style={{ minHeight: '32px' }}></div>
+        <Button variant="ghost" size="sm" className="relative" onClick={() => alert("Opening Alert Console...")}>
           <Bell size={13} /> Alerts
           <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center bg-risk-extreme text-white">
             7
           </span>
         </Button>
-        <Button variant="ghost" size="sm" className="hidden md:inline-flex">
+        <Button variant="ghost" size="sm" className="hidden md:inline-flex" onClick={() => alert("Returning to Master Command Center...")}>
           <Settings2 size={13} /> Command center
         </Button>
         <div className="flex items-center gap-2 pl-2.5 ml-1 border-l border-border-soft">

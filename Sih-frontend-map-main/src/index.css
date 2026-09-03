@@ -1,0 +1,1929 @@
+/* =========================================================
+   DISASTERGUARD AI
+   GLOBAL RESET
+========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: #04090d;
+}
+
+body {
+  overflow: hidden;
+  background: #04090d;
+  color: #ffffff;
+
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  border: 0;
+}
+
+button:focus-visible {
+  outline: 2px solid #ff5a3d;
+  outline-offset: 2px;
+}
+
+
+/* =========================================================
+   APP
+========================================================= */
+
+.app {
+  width: 100vw;
+  height: 100vh;
+
+  overflow: hidden;
+
+  background: #04090d;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.map-header {
+  height: 72px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 25px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #091218 0%,
+      #050c11 100%
+    );
+
+  border-bottom:
+    1px solid #26343c;
+
+  position: relative;
+  z-index: 2000;
+
+  box-shadow:
+    0 8px 25px rgba(0, 0, 0, 0.28);
+}
+
+
+/* =========================================================
+   BRAND
+========================================================= */
+
+.brand {
+  display: flex;
+  align-items: center;
+
+  gap: 11px;
+
+  min-width: 220px;
+}
+
+.brand-icon {
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 9px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #24130e,
+      #100b09
+    );
+
+  border:
+    1px solid #8c402b;
+
+  color: #ff7045;
+
+  font-size: 20px;
+
+  box-shadow:
+    0 0 18px rgba(255, 91, 55, 0.12);
+}
+
+.brand h1 {
+  margin: 0;
+
+  font-size: 16px;
+  line-height: 1.1;
+
+  font-weight: 900;
+
+  letter-spacing: 1px;
+}
+
+.brand p {
+  margin: 4px 0 0;
+
+  font-size: 8px;
+
+  letter-spacing: 1px;
+
+  color: #687980;
+
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   HEADER CENTER
+========================================================= */
+
+.header-title {
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  font-size: 12px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.8px;
+
+  white-space: nowrap;
+}
+
+.red-dot {
+  color: #ff3428;
+
+  text-shadow:
+    0 0 10px #ff3428,
+    0 0 22px rgba(255, 52, 40, 0.35);
+}
+
+.separator {
+  color: #35444b;
+}
+
+.district {
+  color: #6e7d84;
+
+  font-weight: 500;
+
+  letter-spacing: 0;
+}
+
+
+/* =========================================================
+   LIVE STATUS
+========================================================= */
+
+.live {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  white-space: nowrap;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #18e778;
+
+  box-shadow:
+    0 0 8px #18e778,
+    0 0 18px rgba(24, 231, 120, 0.35);
+
+  animation:
+    livePulse 1.6s infinite;
+}
+
+.system {
+  color: #65747b;
+
+  font-weight: 500;
+}
+
+@keyframes livePulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+
+/* =========================================================
+   MAP
+========================================================= */
+
+.map-wrapper {
+  width: 100%;
+
+  height:
+    calc(100vh - 72px);
+}
+
+.risk-map-container {
+  position: relative;
+
+  width: 100%;
+  height: 100%;
+
+  overflow: hidden;
+
+  background: #050b0f;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+
+  background: #050b0f;
+
+  font-family: inherit;
+
+  cursor: default;
+}
+
+
+/* =========================================================
+   BASE MAP
+========================================================= */
+
+.base-map-tiles {
+  filter:
+    brightness(0.42)
+    contrast(1.25)
+    saturate(0.55);
+}
+
+
+/* =========================================================
+   LEAFLET ATTRIBUTION
+========================================================= */
+
+.leaflet-control-attribution {
+  background:
+    rgba(4, 9, 13, 0.88) !important;
+
+  color: #718089 !important;
+
+  border-radius:
+    5px 0 0 0;
+
+  border-top:
+    1px solid rgba(255, 255, 255, 0.05);
+}
+
+.leaflet-control-attribution a {
+  color: #9ba9ae !important;
+}
+
+
+/* =========================================================
+   LEAFLET ZOOM CONTROLS
+========================================================= */
+
+.leaflet-control-zoom {
+  border: none !important;
+
+  margin-top: 15px !important;
+  margin-left: 15px !important;
+
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.45);
+
+  overflow: hidden;
+
+  border-radius: 8px;
+}
+
+.leaflet-control-zoom a {
+  width: 31px !important;
+  height: 31px !important;
+
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    rgba(5, 12, 17, 0.94) !important;
+
+  color: #d7e0e3 !important;
+
+  border:
+    1px solid #33444c !important;
+
+  border-bottom: none !important;
+
+  font-size: 18px !important;
+
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.leaflet-control-zoom a:last-child {
+  border-bottom:
+    1px solid #33444c !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: #17272d !important;
+
+  color: #ffffff !important;
+}
+
+
+/* =========================================================
+   MAP TITLE
+========================================================= */
+
+.map-title-overlay {
+  position: absolute;
+
+  left: 20px;
+  top: 18px;
+
+  z-index: 1000;
+
+  padding:
+    11px 14px;
+
+  min-width: 220px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.13);
+
+  border-radius: 9px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(5, 12, 17, 0.94),
+      rgba(5, 11, 16, 0.84)
+    );
+
+  backdrop-filter:
+    blur(14px);
+
+  -webkit-backdrop-filter:
+    blur(14px);
+
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.32);
+
+  pointer-events: none;
+}
+
+.map-title {
+  font-size: 12px;
+
+  font-weight: 900;
+
+  letter-spacing: 1px;
+
+  color: #ffffff;
+}
+
+.map-subtitle {
+  margin-top: 4px;
+
+  font-size: 8px;
+
+  color: #718089;
+
+  letter-spacing: 0.6px;
+
+  line-height: 1.35;
+}
+
+
+/* =========================================================
+   HAZARD SELECTOR
+========================================================= */
+
+.hazard-selector {
+  position: absolute;
+
+  left: 50%;
+
+  top: 18px;
+
+  transform:
+    translateX(-50%);
+
+  z-index: 1100;
+
+  width: min(
+    580px,
+    calc(100vw - 500px)
+  );
+
+  min-width: 440px;
+
+  padding: 10px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(5, 12, 17, 0.96),
+      rgba(5, 10, 14, 0.90)
+    );
+
+  backdrop-filter:
+    blur(16px);
+
+  -webkit-backdrop-filter:
+    blur(16px);
+
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.hazard-selector-head {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  padding:
+    1px 3px 8px;
+}
+
+.hazard-selector-head > div {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 2px;
+}
+
+.hazard-kicker {
+  color: #65757c;
+
+  font-size: 7px;
+
+  font-weight: 800;
+
+  letter-spacing: 1.3px;
+}
+
+.hazard-selector-head strong {
+  color: #ffffff;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.5px;
+}
+
+.hazard-live-dot {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  height: 19px;
+
+  padding:
+    0 7px;
+
+  border:
+    1px solid rgba(0, 255, 136, 0.32);
+
+  border-radius: 999px;
+
+  color: #00ff88;
+
+  background:
+    rgba(0, 255, 136, 0.06);
+
+  font-size: 7px;
+
+  font-weight: 900;
+
+  letter-spacing: 0.8px;
+
+  box-shadow:
+    0 0 12px rgba(0, 255, 136, 0.06);
+}
+
+.hazard-tabs {
+  display: grid;
+
+  grid-template-columns:
+    repeat(5, 1fr);
+
+  gap: 5px;
+}
+
+.hazard-tab {
+  min-height: 31px;
+
+  padding:
+    0 6px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.07);
+
+  border-radius: 7px;
+
+  background:
+    rgba(255, 255, 255, 0.025);
+
+  color: #74838a;
+
+  cursor: pointer;
+
+  font-size: 8px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.55px;
+
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.hazard-tab:hover {
+  color: #dce5e8;
+
+  background:
+    rgba(255, 255, 255, 0.065);
+
+  border-color:
+    rgba(255, 255, 255, 0.16);
+
+  transform:
+    translateY(-1px);
+}
+
+.hazard-tab.active {
+  color: #ffffff;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 70, 40, 0.18),
+      rgba(255, 70, 40, 0.07)
+    );
+
+  border-color:
+    rgba(255, 84, 55, 0.60);
+
+  box-shadow:
+    0 0 16px rgba(255, 65, 40, 0.09),
+    inset 0 0 12px rgba(255, 65, 40, 0.04);
+}
+
+
+/* =========================================================
+   AI STATUS PANEL
+========================================================= */
+
+.ai-status-panel {
+  position: absolute;
+
+  top: 105px;
+  left: 20px;
+
+  z-index: 1000;
+
+  width: 220px;
+
+  padding: 15px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(5, 11, 16, 0.96),
+      rgba(4, 9, 13, 0.91)
+    );
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 10px;
+
+  backdrop-filter:
+    blur(14px);
+
+  -webkit-backdrop-filter:
+    blur(14px);
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.42);
+
+  overflow: hidden;
+}
+
+.ai-status-panel::before {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 1px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 255, 136, 0.45),
+      transparent
+    );
+}
+
+.ai-status-header {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  letter-spacing: 1.4px;
+
+  color: #ffffff;
+
+  margin-bottom: 14px;
+}
+
+.ai-pulse {
+  width: 8px;
+  height: 8px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #00ff88;
+
+  box-shadow:
+    0 0 8px #00ff88,
+    0 0 16px rgba(0, 255, 136, 0.32);
+
+  animation:
+    aiPulse 1.5s infinite;
+}
+
+.ai-status-main {
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  align-items: center;
+
+  padding-bottom: 10px;
+
+  margin-bottom: 8px;
+
+  border-bottom:
+    1px solid
+    rgba(255, 255, 255, 0.08);
+}
+
+.ai-status-main span {
+  font-size: 9px;
+
+  color: #7f8c94;
+
+  letter-spacing: 0.4px;
+}
+
+.ai-status-main strong {
+  font-size: 10px;
+
+  color: #00ff88;
+
+  letter-spacing: 0.5px;
+}
+
+.ai-status-row {
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  align-items: center;
+
+  padding: 6px 0;
+
+  font-size: 10px;
+}
+
+.ai-status-row span {
+  color: #7f8c94;
+}
+
+.ai-status-row b {
+  color: #dce5e8;
+
+  font-size: 9px;
+
+  letter-spacing: 0.5px;
+}
+
+@keyframes aiPulse {
+  0% {
+    opacity: 1;
+
+    transform:
+      scale(1);
+  }
+
+  50% {
+    opacity: 0.4;
+
+    transform:
+      scale(0.75);
+  }
+
+  100% {
+    opacity: 1;
+
+    transform:
+      scale(1);
+  }
+}
+
+
+/* =========================================================
+   RISK LEGEND
+========================================================= */
+
+.risk-legend {
+  position: absolute;
+
+  top: 18px;
+  right: 20px;
+
+  z-index: 1000;
+
+  min-width: 100px;
+
+  padding:
+    12px 15px;
+
+  background:
+    rgba(5, 12, 17, 0.94);
+
+  border:
+    1px solid #33444c;
+
+  border-radius: 10px;
+
+  backdrop-filter:
+    blur(12px);
+
+  -webkit-backdrop-filter:
+    blur(12px);
+
+  font-size: 10px;
+
+  line-height: 23px;
+
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.30);
+}
+
+.legend-title {
+  color: #9ba9ae;
+
+  font-size: 9px;
+
+  font-weight: 900;
+
+  letter-spacing: 1px;
+
+  margin-bottom: 3px;
+}
+
+.dot {
+  display: inline-block;
+
+  width: 8px;
+  height: 8px;
+
+  margin-right: 8px;
+
+  border-radius: 50%;
+
+  vertical-align: middle;
+}
+
+.very-low {
+  background: #16e879;
+
+  box-shadow:
+    0 0 8px #16e879;
+}
+
+.low {
+  background: #477cff;
+
+  box-shadow:
+    0 0 8px #477cff;
+}
+
+.moderate {
+  background: #ffd000;
+
+  box-shadow:
+    0 0 8px #ffd000;
+}
+
+.high {
+  background: #ff7200;
+
+  box-shadow:
+    0 0 8px #ff7200;
+}
+
+.extreme {
+  background: #ff2525;
+
+  box-shadow:
+    0 0 8px #ff2525;
+}
+
+
+/* =========================================================
+   LOCATION LIST
+========================================================= */
+
+.location-list {
+  position: absolute;
+
+  right: 20px;
+  top: 125px;
+
+  width: 205px;
+
+  z-index: 1000;
+
+  padding: 10px;
+
+  background:
+    rgba(5, 12, 17, 0.95);
+
+  border:
+    1px solid #33444c;
+
+  border-radius: 11px;
+
+  backdrop-filter:
+    blur(12px);
+
+  -webkit-backdrop-filter:
+    blur(12px);
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.38);
+}
+
+.location-list-title {
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  align-items: center;
+
+  padding:
+    3px 5px 8px;
+
+  color: #a8b5ba;
+
+  font-size: 9px;
+
+  font-weight: 900;
+
+  letter-spacing: 1px;
+}
+
+.location-list-title span {
+  color: #56666d;
+
+  font-size: 8px;
+
+  letter-spacing: 0;
+
+  font-weight: 500;
+}
+
+.location-item {
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content:
+    space-between;
+
+  padding:
+    8px 9px;
+
+  border:
+    1px solid transparent;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #c6d0d4;
+
+  cursor: pointer;
+
+  font-size: 10px;
+
+  text-align: left;
+
+  transition:
+    background 0.18s ease,
+    border 0.18s ease,
+    transform 0.18s ease;
+}
+
+.location-item:hover {
+  background: #142126;
+
+  transform:
+    translateX(-2px);
+}
+
+.location-item.active {
+  background:
+    linear-gradient(
+      90deg,
+      #17272d,
+      #122025
+    );
+
+  border:
+    1px solid #3a4d55;
+
+  box-shadow:
+    inset 2px 0 0 #ff5a3d;
+}
+
+.location-item span {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+}
+
+.location-item i {
+  width: 7px;
+  height: 7px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  box-shadow:
+    0 0 7px currentColor;
+}
+
+.location-item b {
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   LOCATION TOOLTIP LABEL
+========================================================= */
+
+.risk-location-label {
+  background:
+    rgba(4, 10, 14, 0.92) !important;
+
+  color: #f4f8f9 !important;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.16) !important;
+
+  border-radius: 6px !important;
+
+  padding:
+    4px 7px !important;
+
+  box-shadow:
+    0 5px 16px rgba(0, 0, 0, 0.42),
+    0 0 12px rgba(255, 255, 255, 0.035);
+
+  font-size: 9px !important;
+
+  font-weight: 800 !important;
+
+  letter-spacing: 0.3px;
+
+  white-space: nowrap;
+}
+
+.risk-location-label::before {
+  border-top-color:
+    rgba(255, 255, 255, 0.16) !important;
+}
+
+
+/* =========================================================
+   AI PREDICTION PANEL
+========================================================= */
+
+.prediction-panel {
+  position: absolute;
+
+  bottom: 24px;
+  left: 24px;
+
+  z-index: 1000;
+
+  width: 180px;
+
+  padding: 14px;
+
+  background:
+    rgba(5, 11, 16, 0.95);
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.10);
+
+  border-radius: 10px;
+
+  backdrop-filter:
+    blur(12px);
+
+  -webkit-backdrop-filter:
+    blur(12px);
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.38);
+}
+
+.prediction-title {
+  font-size: 9px;
+
+  letter-spacing: 1.4px;
+
+  color: #7c8990;
+
+  font-weight: 800;
+}
+
+.prediction-value {
+  margin-top: 4px;
+
+  font-size: 30px;
+
+  font-weight: 800;
+
+  line-height: 1;
+
+  color: #ffffff;
+}
+
+.prediction-value span {
+  font-size: 11px;
+
+  color: #7c8990;
+}
+
+.prediction-subtitle {
+  margin-top: 5px;
+
+  font-size: 9px;
+
+  color: #68757c;
+}
+
+.prediction-confidence {
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  align-items: center;
+
+  margin-top: 14px;
+
+  padding-top: 9px;
+
+  border-top:
+    1px solid
+    rgba(255, 255, 255, 0.08);
+}
+
+.prediction-confidence span {
+  font-size: 8px;
+
+  color: #6e7b82;
+}
+
+.prediction-confidence strong {
+  font-size: 10px;
+
+  color: #00ff88;
+}
+
+
+/* =========================================================
+   SELECTED RISK CARD
+========================================================= */
+
+.selected-risk-card {
+  position: absolute;
+
+  right: 20px;
+  bottom: 20px;
+
+  width: 265px;
+
+  z-index: 1000;
+
+  padding: 15px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(5, 12, 17, 0.97),
+      rgba(4, 9, 13, 0.94)
+    );
+
+  border:
+    1px solid;
+
+  border-radius: 12px;
+
+  backdrop-filter:
+    blur(14px);
+
+  -webkit-backdrop-filter:
+    blur(14px);
+
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.44);
+
+  overflow: hidden;
+}
+
+.selected-risk-card::before {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 1px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.15),
+      transparent
+    );
+}
+
+.selected-top {
+  display: flex;
+
+  align-items:
+    flex-start;
+
+  justify-content:
+    space-between;
+
+  gap: 10px;
+}
+
+.selected-top small {
+  color: #697980;
+
+  font-size: 8px;
+
+  letter-spacing: 1px;
+
+  font-weight: 900;
+}
+
+.selected-top h2 {
+  margin:
+    3px 0 0;
+
+  font-size: 18px;
+
+  line-height: 1.15;
+
+  font-weight: 850;
+}
+
+.selected-top span {
+  padding:
+    4px 7px;
+
+  border:
+    1px solid;
+
+  border-radius: 999px;
+
+  font-size: 8px;
+
+  font-weight: 900;
+
+  white-space: nowrap;
+}
+
+.big-risk {
+  display: flex;
+
+  align-items:
+    baseline;
+
+  gap: 7px;
+
+  margin:
+    12px 0;
+}
+
+.big-risk strong {
+  font-size: 38px;
+
+  line-height: 1;
+
+  font-weight: 900;
+
+  text-shadow:
+    0 0 20px currentColor;
+}
+
+.big-risk div {
+  color: #6b7a81;
+
+  font-size: 10px;
+}
+
+.big-risk small {
+  display: block;
+
+  margin-top: 3px;
+
+  font-size: 7px;
+
+  letter-spacing: 0.6px;
+}
+
+.metrics {
+  display: grid;
+
+  gap: 7px;
+
+  padding-top: 10px;
+
+  border-top:
+    1px solid #27373e;
+}
+
+.metrics div {
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  align-items: center;
+
+  color: #7d8b91;
+
+  font-size: 9px;
+}
+
+.metrics b {
+  color: #e0e7e9;
+
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   LEAFLET POPUP
+========================================================= */
+
+.leaflet-popup-content-wrapper {
+  background: #071117;
+
+  color: #ffffff;
+
+  border:
+    1px solid #34464e;
+
+  border-radius: 10px;
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.45);
+
+  overflow: hidden;
+}
+
+.leaflet-popup-tip {
+  background: #071117;
+}
+
+.leaflet-popup-content {
+  margin: 13px;
+
+  font-size: 11px;
+}
+
+.leaflet-popup-content p {
+  margin:
+    7px 0;
+}
+
+.leaflet-popup-content hr {
+  opacity: 0.55;
+}
+
+.leaflet-popup-close-button {
+  color: #718089 !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #ffffff !important;
+}
+
+
+/* =========================================================
+   LEAFLET TOOLTIP
+========================================================= */
+
+.leaflet-tooltip {
+  background:
+    rgba(5, 12, 17, 0.94);
+
+  color: #ffffff;
+
+  border:
+    1px solid #33444c;
+
+  border-radius: 6px;
+
+  font-size: 10px;
+
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.leaflet-tooltip::before {
+  border-top-color:
+    #33444c;
+}
+
+
+/* =========================================================
+   LEAFLET CONTROLS
+========================================================= */
+
+.leaflet-control {
+  z-index: 800;
+}
+
+.leaflet-control-attribution {
+  z-index: 900;
+}
+
+
+/* =========================================================
+   MOBILE / TABLET
+========================================================= */
+
+@media (max-width: 1100px) {
+
+  .hazard-selector {
+    width: 430px;
+
+    min-width: 0;
+  }
+
+  .hazard-tab {
+    font-size: 7px;
+  }
+
+  .location-list {
+    width: 190px;
+  }
+
+  .selected-risk-card {
+    width: 245px;
+  }
+}
+
+
+/* =========================================================
+   TABLET
+========================================================= */
+
+@media (max-width: 900px) {
+
+  .header-title {
+    display: none;
+  }
+
+  .system {
+    display: none;
+  }
+
+  .brand {
+    min-width: auto;
+  }
+
+  .hazard-selector {
+    left: auto;
+    right: 20px;
+
+    transform: none;
+
+    width: 390px;
+
+    top: 18px;
+  }
+
+  .ai-status-panel {
+    width: 190px;
+  }
+
+  .location-list {
+    width: 190px;
+  }
+
+  .selected-risk-card {
+    width: 240px;
+  }
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+  .map-header {
+    height: 60px;
+
+    padding:
+      0 12px;
+  }
+
+  .map-wrapper {
+    height:
+      calc(100vh - 60px);
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  .brand h1 {
+    font-size: 13px;
+  }
+
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+
+    font-size: 17px;
+  }
+
+  .live {
+    font-size: 9px;
+  }
+
+  .risk-legend {
+    right: 10px;
+    top: 10px;
+
+    padding:
+      9px 11px;
+  }
+
+  .map-title-overlay {
+    left: 10px;
+    top: 10px;
+
+    min-width: 0;
+
+    padding:
+      9px 11px;
+
+    max-width:
+      calc(100vw - 20px);
+  }
+
+  .map-title {
+    font-size: 10px;
+  }
+
+  .map-subtitle {
+    font-size: 7px;
+
+    max-width: 180px;
+  }
+
+  /* ---------------------------------------------
+     HAZARD SELECTOR
+  --------------------------------------------- */
+
+  .hazard-selector {
+    left: 10px;
+    right: 10px;
+
+    top: 73px;
+
+    transform: none;
+
+    width: auto;
+
+    min-width: 0;
+
+    padding: 8px;
+  }
+
+  .hazard-selector-head {
+    padding-bottom: 7px;
+  }
+
+  .hazard-kicker {
+    font-size: 6px;
+  }
+
+  .hazard-selector-head strong {
+    font-size: 9px;
+  }
+
+  .hazard-tabs {
+    gap: 3px;
+  }
+
+  .hazard-tab {
+    min-height: 28px;
+
+    padding:
+      0 3px;
+
+    font-size: 6.5px;
+
+    letter-spacing: 0.2px;
+  }
+
+  /* ---------------------------------------------
+     AI STATUS
+  --------------------------------------------- */
+
+  .ai-status-panel {
+    left: 10px;
+    top: 170px;
+
+    width: 165px;
+
+    padding: 11px;
+  }
+
+  .ai-status-header {
+    font-size: 9px;
+
+    margin-bottom: 9px;
+  }
+
+  .ai-status-row {
+    font-size: 9px;
+
+    padding: 4px 0;
+  }
+
+  .ai-status-row b {
+    font-size: 8px;
+  }
+
+  /* ---------------------------------------------
+     LOCATION LIST
+  --------------------------------------------- */
+
+  .location-list {
+    right: 10px;
+
+    top: auto;
+
+    bottom: 10px;
+
+    width: 175px;
+  }
+
+  /* ---------------------------------------------
+     PREDICTION
+  --------------------------------------------- */
+
+  .prediction-panel {
+    left: 10px;
+
+    bottom: 10px;
+
+    width: 145px;
+
+    padding: 11px;
+  }
+
+  .prediction-value {
+    font-size: 25px;
+  }
+
+  /* ---------------------------------------------
+     SELECTED CARD
+  --------------------------------------------- */
+
+  .selected-risk-card {
+    left: 10px;
+
+    right: auto;
+
+    bottom: 170px;
+
+    width: 205px;
+
+    padding: 12px;
+  }
+
+  .selected-top h2 {
+    font-size: 15px;
+  }
+
+  .big-risk strong {
+    font-size: 32px;
+  }
+
+  /* ---------------------------------------------
+     ZOOM
+  --------------------------------------------- */
+
+  .leaflet-control-zoom {
+    margin-left: 8px !important;
+    margin-top: 8px !important;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL MOBILE
+========================================================= */
+
+@media (max-width: 420px) {
+
+  .brand h1 {
+    font-size: 12px;
+  }
+
+  .live {
+    display: none;
+  }
+
+  .risk-legend {
+    top: 8px;
+    right: 8px;
+
+    padding:
+      7px 9px;
+
+    font-size: 9px;
+
+    line-height: 20px;
+  }
+
+  .legend-title {
+    font-size: 8px;
+  }
+
+  .map-title-overlay {
+    top: 8px;
+    left: 8px;
+  }
+
+  .map-title {
+    font-size: 9px;
+  }
+
+  .map-subtitle {
+    font-size: 6px;
+  }
+
+  .hazard-selector {
+    top: 66px;
+    left: 8px;
+    right: 8px;
+  }
+
+  .hazard-selector-head {
+    display: none;
+  }
+
+  .hazard-tabs {
+    grid-template-columns:
+      repeat(5, 1fr);
+  }
+
+  .hazard-tab {
+    min-height: 26px;
+
+    font-size: 5.8px;
+  }
+
+  .ai-status-panel {
+    display: none;
+  }
+
+  .prediction-panel {
+    display: none;
+  }
+
+  .location-list {
+    width: 155px;
+  }
+
+  .selected-risk-card {
+    width: 190px;
+  }
+
+  .selected-top small {
+    font-size: 6.5px;
+  }
+
+  .selected-top h2 {
+    font-size: 14px;
+  }
+
+  .big-risk strong {
+    font-size: 29px;
+  }
+}
+
+
+/* =========================================================
+   LANDSCAPE MOBILE
+========================================================= */
+
+@media (max-height: 550px) and (max-width: 900px) {
+
+  .ai-status-panel {
+    display: none;
+  }
+
+  .prediction-panel {
+    display: none;
+  }
+
+  .location-list {
+    top: auto;
+    bottom: 10px;
+
+    max-height: 190px;
+
+    overflow-y: auto;
+  }
+
+  .selected-risk-card {
+    bottom: 10px;
+
+    right: 195px;
+    left: auto;
+
+    max-height: 210px;
+
+    overflow-y: auto;
+  }
+
+  .hazard-selector {
+    top: 10px;
+  }
+}
+
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+.location-list::-webkit-scrollbar,
+.selected-risk-card::-webkit-scrollbar {
+  width: 4px;
+}
+
+.location-list::-webkit-scrollbar-track,
+.selected-risk-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.location-list::-webkit-scrollbar-thumb,
+.selected-risk-card::-webkit-scrollbar-thumb {
+  background: #34464e;
+
+  border-radius: 999px;
+}
+
+.location-list::-webkit-scrollbar-thumb:hover,
+.selected-risk-card::-webkit-scrollbar-thumb:hover {
+  background: #52666f;
+}
+
+
+/* =========================================================
+   ACCESSIBILITY / REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+
+    animation-iteration-count: 1 !important;
+
+    scroll-behavior: auto !important;
+
+    transition-duration: 0.01ms !important;
+  }
+}

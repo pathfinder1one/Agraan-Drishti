@@ -25,15 +25,15 @@ export function CardHeader({ icon: Icon, title, right, className }: CardHeaderPr
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 px-4 py-3 border-b border-border-soft",
+        "flex items-center justify-between gap-2 px-4 py-3 border-b border-border-soft min-w-0",
         className
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
         {Icon && <Icon size={15} className="text-ink-dim shrink-0" />}
-        <h3 className="text-[13px] font-semibold text-ink truncate">{title}</h3>
+        <h3 className="text-[13px] font-bold text-ink whitespace-nowrap">{title}</h3>
       </div>
-      {right}
+      {right && <div className="shrink-0">{right}</div>}
     </div>
   );
 }

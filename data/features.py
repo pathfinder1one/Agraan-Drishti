@@ -172,6 +172,9 @@ def normalize_features(features: xr.Dataset) -> Tuple[xr.Dataset, dict]:
         da = features[name]
         med = float(da.median())
         iqr = max(float(da.quantile(0.75)) - float(da.quantile(0.25)), 1e-10)
-        normed[name] = (da - med) / iqr
+        # Keep rare missing/extreme reanalysis values from overflowing the
+        # ConvLSTM, especially when training with mixed precision.
+        scaled = (da - med) / iqr
+        normed[name] = scaled.where(np.isfinite(scaled), 0.0).clip(min=-10.0, max=10.0)
         stats[name] = {"median": med, "iqr": iqr}
     return xr.Dataset(normed), stats

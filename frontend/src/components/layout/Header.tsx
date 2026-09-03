@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ShieldAlert,
@@ -25,6 +25,50 @@ interface HeaderProps {
 
 export function Header({ searchQuery, setSearchQuery, handleSearch, isSearching, locationName, isLiveLocation, maxRisks }: HeaderProps) {
   const [darkMode, setDarkMode] = useState(true);
+  const [currentLang, setCurrentLang] = useState('en');
+
+  // Sync dark mode state with HTML class
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  useEffect(() => {
+    // Check if script is already added
+    if (document.getElementById("google-translate-script")) return;
+    
+    // Add the callback
+    window.googleTranslateElementInit = () => {
+      if (window.google && window.google.translate) {
+        new window.google.translate.TranslateElement(
+          { pageLanguage: 'en', includedLanguages: 'hi,en,ta,te,mr,bn,gu,kn,ml,pa,ur' },
+          'google_translate_element'
+        );
+      }
+    };
+
+    // Add the script
+    const script = document.createElement("script");
+    script.id = "google-translate-script";
+    script.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+
+  const handleLanguageChange = (e: any) => {
+    const lang = e.target.value;
+    setCurrentLang(lang);
+    
+    // Find the hidden google translate select and trigger change
+    const gtSelect = document.querySelector('.goog-te-combo') as HTMLSelectElement;
+    if (gtSelect) {
+      gtSelect.value = lang;
+      gtSelect.dispatchEvent(new Event('change'));
+    }
+  };
 
   const highestRiskValue = Math.max(...Object.values(maxRisks || { flash_flood: 0 }));
   let riskLevel = "Low";
@@ -105,16 +149,60 @@ export function Header({ searchQuery, setSearchQuery, handleSearch, isSearching,
         <Button variant="ghost" size="sm" onClick={() => setDarkMode((d) => !d)}>
           <Moon size={13} /> {darkMode ? "Dark mode" : "Light mode"}
         </Button>
-        <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
-          <Globe2 size={13} /> Multi-language
-        </Button>
-        <Button variant="ghost" size="sm" className="relative">
+        
+        {/* Hidden Google Translate Target */}
+        <div id="google_translate_element" style={{ display: 'none' }}></div>
+        
+        {/* Custom React Tailwind Native Dropdown */}
+        <div className="relative hidden sm:inline-flex items-center">
+          <Globe2 size={13} className="absolute left-2.5 text-slate-400 pointer-events-none" />
+          <select 
+            value={currentLang}
+            onChange={handleLanguageChange}
+            className="appearance-none bg-transparent hover:bg-slate-800/50 text-slate-300 text-[13px] font-medium py-1.5 pl-7 pr-6 rounded-md border border-slate-700/50 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500/50 transition-colors h-8"
+          >
+            <option value="en" className="bg-[#0f172a] text-slate-300">English</option>
+            <option value="hi" className="bg-[#0f172a] text-slate-300">Hindi</option>
+            <option value="ta" className="bg-[#0f172a] text-slate-300">Tamil</option>
+            <option value="te" className="bg-[#0f172a] text-slate-300">Telugu</option>
+            <option value="mr" className="bg-[#0f172a] text-slate-300">Marathi</option>
+            <option value="bn" className="bg-[#0f172a] text-slate-300">Bengali</option>
+            <option value="gu" className="bg-[#0f172a] text-slate-300">Gujarati</option>
+          </select>
+          <div className="absolute right-2 text-slate-400 pointer-events-none text-[8px]">▼</div>
+        </div>
+
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="relative"
+          onClick={() => {
+            const highHazards = Object.entries(maxRisks || {})
+              .filter(([_, risk]) => risk > 0.7)
+              .map(([hazard, _]) => hazard.replace('_', ' ').toUpperCase());
+            
+            if (highHazards.length > 0) {
+              alert(`Active Critical Alerts:\n- ${highHazards.join('\n- ')}\n\nNDRF teams have been notified.`);
+            } else {
+              alert("No critical alerts at this time. Monitoring normal.");
+            }
+          }}
+        >
           <Bell size={13} /> Alerts
-          <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center bg-risk-extreme text-white">
-            7
-          </span>
+          {Object.values(maxRisks || {}).filter((risk: any) => risk > 0.7).length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center bg-risk-extreme text-white">
+              {Object.values(maxRisks || {}).filter((risk: any) => risk > 0.7).length}
+            </span>
+          )}
         </Button>
-        <Button variant="ghost" size="sm" className="hidden md:inline-flex">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="hidden md:inline-flex"
+          onClick={() => {
+            alert("Redirecting to NDRF Master Command Center view...");
+          }}
+        >
           <Settings2 size={13} /> Command center
         </Button>
         <div className="flex items-center gap-2 pl-2.5 ml-1 border-l border-border-soft">

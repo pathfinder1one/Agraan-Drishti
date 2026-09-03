@@ -9,7 +9,7 @@ interface SidebarProps {
 
 export function Sidebar({ activeNav, onSelect }: SidebarProps) {
   return (
-    <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border bg-panel overflow-y-auto max-h-[calc(100vh-61px)]">
+    <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border bg-panel overflow-y-auto h-full">
       <nav className="p-3 space-y-0.5">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;

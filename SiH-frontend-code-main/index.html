@@ -10,9 +10,35 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <style>
+      /* Hide Google Translate top banner and fix body shift */
+      .goog-te-banner-frame.skiptranslate { display: none !important; }
+      body { top: 0px !important; }
+      
+      /* Make the dropdown match dark mode a bit better */
+      .goog-te-combo {
+        background-color: #2a2a2a;
+        color: #e5e5e5;
+        border: 1px solid #404040;
+        border-radius: 4px;
+        padding: 4px;
+        font-size: 12px;
+      }
+      .goog-logo-link { display: none !important; }
+      .goog-te-gadget { color: transparent !important; }
+    </style>
   </head>
   <body class="bg-bg text-ink antialiased">
     <div id="root"></div>
+    <script type="text/javascript">
+      function googleTranslateElementInit() {
+        new google.translate.TranslateElement(
+          { pageLanguage: 'en', includedLanguages: 'hi,en,ta,te,mr,bn,gu,kn,ml,pa,ur', layout: google.translate.TranslateElement.InlineLayout.SIMPLE },
+          'google_translate_element'
+        );
+      }
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

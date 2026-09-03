@@ -4,9 +4,9 @@ import { MET_DRIVERS } from "@/data/mockData";
 
 export function MetDriversPanel() {
   return (
-    <Card>
+    <Card className="flex flex-col h-full">
       <CardHeader icon={Wind} title="Key meteorological drivers" />
-      <CardBody className="space-y-2.5">
+      <CardBody className="flex-1 space-y-2.5 flex flex-col justify-between">
         {MET_DRIVERS.map((d) => (
           <div key={d.label} className="flex items-center justify-between text-[11.5px]">
             <span className="text-ink-dim">{d.label}</span>

@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* Light mode colors */
+    --color-bg: #f8fafc;
+    --color-panel: #ffffff;
+    --color-panel-alt: #f1f5f9;
+    --color-border: #e2e8f0;
+    --color-border-soft: #f1f5f9;
+    --color-ink: #0f172a;
+    --color-ink-dim: #475569;
+    --color-ink-faint: #64748b;
+  }
+  
+  .dark {
+    /* Dark mode colors */
+    --color-bg: #0a0e16;
+    --color-panel: #0f1420;
+    --color-panel-alt: #0c111c;
+    --color-border: #1c2434;
+    --color-border-soft: #161d2b;
+    --color-ink: #e7ebf3;
+    --color-ink-dim: #8b95ab;
+    --color-ink-faint: #5b6478;
+  }
+}
+
 html,
 body,
 #root {
@@ -32,3 +58,20 @@ body,
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
+
+/* Custom Leaflet District Badges (Rudraprayag Pill) */
+.leaflet-tooltip.custom-district-badge {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 6px !important;
+  padding: 3px 10px !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.02em !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7) !important;
+}
+.leaflet-tooltip.custom-district-badge::before {
+  border-top-color: #000000 !important;
+}
+

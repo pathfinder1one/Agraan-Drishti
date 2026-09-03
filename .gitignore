@@ -16,6 +16,7 @@ env/
 *.pth
 checkpoints/
 *.ckpt
+satellite_cache/
 
 # Node / Frontend
 node_modules/

@@ -114,6 +114,14 @@ def generate_live_india():
         india_features[t, 2, r_pb-8:r_pb+8, c_pb-10:c_pb+10] = 1.2 * intensity
         india_features[t, 3, r_pb-8:r_pb+8, c_pb-10:c_pb+10] = 1.5 * intensity
 
+    import scipy.ndimage
+    numpy_features = india_features.numpy()
+    for t in range(6):
+        for f in range(10):
+            numpy_features[t, f] = scipy.ndimage.gaussian_filter(numpy_features[t, f], sigma=8.0)
+    
+    india_features = torch.from_numpy(numpy_features)
+
     out_path = "backend/api/live_india.pt"
     torch.save(india_features, out_path)
     print("Generated", out_path, "of shape:", india_features.shape)

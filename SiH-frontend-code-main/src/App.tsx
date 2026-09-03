@@ -58,37 +58,47 @@ export default function App() {
         <Sidebar activeNav={activeNav} onSelect={setActiveNav} />
 
         <main className="flex-1 overflow-y-auto max-h-[calc(100vh-61px)]">
-          <div className="p-5 space-y-5 pb-8 max-w-[1920px] mx-auto">
-            {/* Row 1: map + right rail */}
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5 items-start">
-              <RiskMapPanel 
-                heatmapData={heatmapData}
-                activeLayer={activeLayer}
-                onLayerChange={setActiveLayer}
-                onCellClick={handleCellClick}
-                selectedCell={selectedCell}
-                monitoredLocation={monitoredLocation}
-              />
-              <div className="space-y-5">
-                <XAIPanel data={xaiData} selectedCell={selectedCell} />
-                <HazardForecastPanel />
-                <ExposureOverviewPanel />
-                <RecommendedActionsPanel />
+          {activeNav === "dashboard" || activeNav === "live-map" ? (
+            <div className="p-5 space-y-5 pb-8 max-w-[1920px] mx-auto">
+              {/* Row 1: map + right rail */}
+              <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5 items-start">
+                <RiskMapPanel 
+                  heatmapData={heatmapData}
+                  activeLayer={activeLayer}
+                  onLayerChange={setActiveLayer}
+                  onCellClick={handleCellClick}
+                  selectedCell={selectedCell}
+                  monitoredLocation={monitoredLocation}
+                />
+                <div className="space-y-5">
+                  <XAIPanel data={xaiData} selectedCell={selectedCell} />
+                  <HazardForecastPanel />
+                  <ExposureOverviewPanel selectedCell={selectedCell} />
+                  <RecommendedActionsPanel />
+                </div>
+              </div>
+
+              {/* Row 2: nowcast timeline */}
+              <NowcastTimeline />
+
+              {/* Row 3: bottom panels */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
+                <SatellitePanel />
+                <RadarPanel />
+                <MetDriversPanel />
+                <ImpactPredictionPanel />
+                <SafeRoutePanel />
               </div>
             </div>
-
-            {/* Row 2: nowcast timeline */}
-            <NowcastTimeline />
-
-            {/* Row 3: bottom panels */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
-              <SatellitePanel />
-              <RadarPanel />
-              <MetDriversPanel />
-              <ImpactPredictionPanel />
-              <SafeRoutePanel />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-ink-dim p-10 mt-20">
+              <div className="text-6xl mb-4">🚧</div>
+              <h2 className="text-2xl font-bold text-ink mb-2">Module under construction</h2>
+              <p className="text-center max-w-md">
+                The <strong>{activeNav.replace('-', ' ')}</strong> module will be fully integrated with existing NDRF & State Command Center APIs post-hackathon.
+              </p>
             </div>
-          </div>
+          )}
         </main>
       </div>
 

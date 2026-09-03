@@ -20,9 +20,10 @@ def main():
         return
         
     X_train = torch.load(out_dir / "X_train.pt", weights_only=True).float()
-    X_train = torch.nan_to_num(X_train, nan=0.0, posinf=0.0, neginf=0.0)
+    X_train = torch.nan_to_num(X_train, nan=0.0, posinf=0.0, neginf=0.0).clamp(-10.0, 10.0)
     
     y_train = torch.load(out_dir / "y_train.pt", weights_only=True).float()
+    y_train = torch.nan_to_num(y_train, nan=0.0, posinf=1.0, neginf=0.0).clamp(0.0, 1.0)
     terrain_train = torch.load(out_dir / "terrain_train.pt", weights_only=True).float()
     terrain_train = torch.nan_to_num(terrain_train, nan=0.0, posinf=0.0, neginf=0.0)
     

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Map as MapIcon,
@@ -9,6 +9,7 @@ import {
   Compass,
   Maximize2,
   Play,
+  Pause,
   X,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -40,6 +41,67 @@ export function RiskMapPanel({ heatmapData, onCellClick, selectedCell, monitored
     Infrastructure: true,
   });
   const [mapMode, setMapMode] = useState<(typeof MAP_MODES)[number]>("Terrain 3D");
+  const [mapInstance, setMapInstance] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [animHour, setAnimHour] = useState<number>(0);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+
+  // Time animation loop
+  useEffect(() => {
+    let timer: any = null;
+    if (isPlaying) {
+      timer = setInterval(() => {
+        setAnimHour((h) => (h >= 6 ? 0 : h + 1));
+      }, 1500);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isPlaying]);
+
+  const handleZoomIn = () => {
+    if (mapInstance) {
+      mapInstance.zoomIn();
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (mapInstance) {
+      mapInstance.zoomOut();
+    }
+  };
+
+  const handleRecenter = () => {
+    if (mapInstance && monitoredLocation) {
+      mapInstance.flyTo([monitoredLocation.lat, monitoredLocation.lon], 9, {
+        duration: 1.5,
+        easeLinearity: 0.25,
+      });
+    } else if (mapInstance) {
+      mapInstance.flyTo([30.28, 78.98], 8, {
+        duration: 1.5,
+      });
+    }
+  };
+
+  const handleCycleMode = () => {
+    const modes: (typeof MAP_MODES)[number][] = ["Terrain 3D", "Satellite View", "Street Map"];
+    const nextIdx = (modes.indexOf(mapMode) + 1) % modes.length;
+    setMapMode(modes[nextIdx]);
+  };
+
+  const handleToggleFullscreen = () => {
+    const el = mapContainerRef.current;
+    if (!document.fullscreenElement) {
+      if (el?.requestFullscreen) {
+        el.requestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   return (
     <Card>
@@ -112,7 +174,7 @@ export function RiskMapPanel({ heatmapData, onCellClick, selectedCell, monitored
         </div>
 
         {/* Map canvas */}
-        <div className="relative flex-1 min-h-[480px] bg-[#0b0f18] overflow-hidden rounded-br-xl">
+        <div ref={mapContainerRef} className="relative flex-1 min-h-[480px] bg-[#0b0f18] overflow-hidden rounded-br-xl">
           <LiveMap 
             heatmapData={heatmapData} 
             activeLayer={activeLayer} 
@@ -120,24 +182,68 @@ export function RiskMapPanel({ heatmapData, onCellClick, selectedCell, monitored
             onCellClick={onCellClick}
             selectedCell={selectedCell}
             monitoredLocation={monitoredLocation}
+            onMapReady={setMapInstance}
           />
 
+          {/* Interactive Map Controls */}
           <div className="absolute top-4 right-4 flex flex-col gap-1.5 z-10">
-            {[Plus, Minus, Compass, Layers, Maximize2].map((Icon, i) => (
-              <button
-                key={i}
-                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:brightness-125 bg-panel/85 border border-border"
-              >
-                <Icon size={14} className="text-ink-dim" />
-              </button>
-            ))}
+            <button
+              onClick={handleZoomIn}
+              title="Zoom In (+)"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+            >
+              <Plus size={14} />
+            </button>
+            <button
+              onClick={handleZoomOut}
+              title="Zoom Out (-)"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+            >
+              <Minus size={14} />
+            </button>
+            <button
+              onClick={handleRecenter}
+              title="Recenter Map on Monitored Epicenter"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+            >
+              <Compass size={14} />
+            </button>
+            <button
+              onClick={handleCycleMode}
+              title={`Switch Base Layer: ${mapMode} (Click to toggle)`}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+            >
+              <Layers size={14} />
+            </button>
+            <button
+              onClick={handleToggleFullscreen}
+              title="Toggle Fullscreen Map"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+            >
+              <Maximize2 size={14} />
+            </button>
           </div>
 
-          <div className="absolute bottom-3 left-3 flex items-center gap-3 px-3 py-2 rounded-lg text-[11px] text-ink-dim bg-panel/90 border border-border">
-            <Play size={12} />
-            Time animation
-            <input type="range" min={0} max={6} defaultValue={0} className="w-24 accent-blue-500" />
-            <span>Now → +6h</span>
+          {/* Interactive Time Animation Bar */}
+          <div className="absolute bottom-3 left-3 flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] text-ink-dim bg-panel/90 backdrop-blur-md border border-border z-10 shadow-md">
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 font-bold transition-colors cursor-pointer"
+              title={isPlaying ? "Pause Nowcast Animation" : "Play Nowcast Animation"}
+            >
+              {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+              <span>{isPlaying ? "Pause" : "Play"}</span>
+            </button>
+            <span className="text-border">|</span>
+            <input 
+              type="range" 
+              min={0} 
+              max={6} 
+              value={animHour} 
+              onChange={(e) => setAnimHour(parseInt(e.target.value))} 
+              className="w-24 accent-blue-500 cursor-pointer" 
+            />
+            <span className="font-mono font-semibold text-ink">+{animHour}h Nowcast</span>
           </div>
         </div>
       </div>

@@ -6,17 +6,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: "#0a0e16",
-        panel: "#0f1420",
-        "panel-alt": "#0c111c",
+        bg: "var(--color-bg)",
+        panel: "var(--color-panel)",
+        "panel-alt": "var(--color-panel-alt)",
         border: {
-          DEFAULT: "#1c2434",
-          soft: "#161d2b",
+          DEFAULT: "var(--color-border)",
+          soft: "var(--color-border-soft)",
         },
         ink: {
-          DEFAULT: "#e7ebf3",
-          dim: "#8b95ab",
-          faint: "#5b6478",
+          DEFAULT: "var(--color-ink)",
+          dim: "var(--color-ink-dim)",
+          faint: "var(--color-ink-faint)",
         },
         accent: {
           DEFAULT: "#3b82f6",
