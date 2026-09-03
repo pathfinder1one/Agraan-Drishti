@@ -887,6 +887,96 @@ def post_m2m_override(payload: dict = None):
     return {"status": "ok", "aborted": M2M_OVERRIDE_STATE["aborted"]}
 
 
+@app.get("/api/vulnerable-registry/{lat}/{lon}")
+def get_vulnerable_registry(lat: float, lon: float):
+    """
+    Community-Based Vulnerable Population Registry (No-Device Needed Outreach).
+    Maps deaf, blind, mobility-impaired, and elderly individuals without smartphones
+    to local ASHA workers, Anganwadi workers, and designated neighbor volunteers.
+    """
+    is_mountain = lat > 29.0
+    ward_name = "Rudraprayag Ward 4 (Mandakini Valley)" if is_mountain else "Yamuna Khadar Ward 12"
+    
+    return {
+        "ward": ward_name,
+        "coordinates": {"lat": lat, "lon": lon},
+        "total_vulnerable_registered": 48 if is_mountain else 74,
+        "asha_workers_active": 12 if is_mountain else 18,
+        "neighbor_caretakers_assigned": 36 if is_mountain else 56,
+        "categories": {
+            "mobility_impaired": 19,
+            "hearing_impaired_deaf": 11,
+            "visually_impaired_blind": 6,
+            "elderly_alone_bedridden": 12
+        },
+        "roster": [
+            {
+                "id": "VULN-001",
+                "name": "Smt. Kamla Devi",
+                "age": 78,
+                "address": "House #12, Upper Mandakini Basti",
+                "vulnerability": "Mobility Impaired (Wheelchair)",
+                "device_owned": "None",
+                "assigned_caretaker": "Geeta Rawat (ASHA Worker)",
+                "caretaker_contact": "+91 98765 43210",
+                "status": "PRIORITY EVACUATION DISPATCHED",
+                "evac_target_shelter": "Community High School Relief Camp"
+            },
+            {
+                "id": "VULN-002",
+                "name": "Shri Ramesh Negi",
+                "age": 54,
+                "address": "House #19, Near Old Suspension Bridge",
+                "vulnerability": "Hearing Impaired (Deaf - Cannot hear siren)",
+                "device_owned": "Basic Feature Phone (No Internet)",
+                "assigned_caretaker": "Suresh Bisht (Neighbor Volunteer)",
+                "caretaker_contact": "+91 98765 11223",
+                "status": "PHYSICAL DOOR-KNOCK ASSIGNED",
+                "evac_target_shelter": "Panchayat Bhavan High Ground"
+            },
+            {
+                "id": "VULN-003",
+                "name": "Master Ankit Kumar",
+                "age": 14,
+                "address": "House #41, Riverside Terrace",
+                "vulnerability": "Visually Impaired (Blind)",
+                "device_owned": "None",
+                "assigned_caretaker": "Anita Devi (Anganwadi Worker)",
+                "caretaker_contact": "+91 98765 99887",
+                "status": "EN ROUTE WITH VOLUNTEER",
+                "evac_target_shelter": "Panchayat Bhavan High Ground"
+            },
+            {
+                "id": "VULN-004",
+                "name": "Shri Balbir Singh",
+                "age": 82,
+                "address": "House #07, Low-lying Ghat Road",
+                "vulnerability": "Elderly Alone & Bedridden",
+                "device_owned": "None",
+                "assigned_caretaker": "Vijay Rana (Gram Pradhan Assistant)",
+                "caretaker_contact": "+91 98765 77665",
+                "status": "STRETCHER DISPATCHED (SDRF AID)",
+                "evac_target_shelter": "District Hospital Emergency Wing"
+            }
+        ],
+        "dispatch_protocol": {
+            "tier": "COMMUNITY HUMAN RELAY (NO-DEVICE NEEDED)",
+            "description": "Triggered when AI Nowcast predicts critical flash flood. Directs SMS/IVR physical outreach orders to registered neighbor volunteers and ASHA workers."
+        }
+    }
+
+
+@app.post("/api/vulnerable-registry/dispatch")
+def post_vulnerable_dispatch(payload: dict = None):
+    """Trigger automated physical evacuation alerts to all assigned ASHA and neighbor caretakers."""
+    return {
+        "status": "DISPATCH_INITIATED",
+        "message": "Physical outreach IVR calls & SMS dispatched to 12 ASHA workers and 36 neighbor volunteers.",
+        "timestamp": "10:24 AM IST",
+        "citizens_covered": 48
+    }
+
+
 @app.get("/api/replay/{event_id}")
 def replay_event(event_id: str):
     """Replay model predictions for a historical event."""

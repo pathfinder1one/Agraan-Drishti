@@ -15,10 +15,12 @@ import { XAIPanel } from "@/components/dashboard/XAIPanel";
 import { InnovationHub } from "@/components/dashboard/InnovationHub";
 import { LiveMapFullView } from "@/components/dashboard/LiveMapFullView";
 import { InfrastructureCommandView } from "@/components/dashboard/InfrastructureCommandView";
+import { ReportsAnalyticsView } from "@/components/dashboard/ReportsAnalyticsView";
 import { AnimatePresence, motion } from 'framer-motion';
-import { ShieldAlert, Bell, Activity, ExternalLink, Map as MapIcon, Radio, FileText, Cpu } from 'lucide-react';
+import { ShieldAlert, Bell, Activity, ExternalLink, Map as MapIcon, Radio, FileText, Cpu, PanelLeftOpen } from 'lucide-react';
 
 export default function App() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeNav, setActiveNav] = useState("dashboard");
   const [heatmapData, setHeatmapData] = useState([]);
   const [activeLayer, setActiveLayer] = useState("Flash Flood");
@@ -209,10 +211,24 @@ export default function App() {
         locationName={locationName}
         isLiveLocation={isLiveLocation}
         maxRisks={maxRisks}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
       />
 
-      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
-        <Sidebar activeNav={activeNav} onSelect={setActiveNav} />
+      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden relative">
+        <Sidebar activeNav={activeNav} onSelect={setActiveNav} isOpen={sidebarOpen} onToggle={setSidebarOpen} />
+
+        {/* Floating Quick-Open Button when Sidebar is Hidden */}
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="fixed left-3 top-20 z-40 px-3 py-1.5 rounded-xl bg-blue-600/90 hover:bg-blue-600 text-white shadow-[0_4px_20px_rgba(37,99,235,0.4)] border border-blue-400/40 backdrop-blur transition-all flex items-center gap-1.5 text-xs font-bold"
+            title="Open Sidebar Navigation"
+          >
+            <PanelLeftOpen size={15} />
+            <span className="hidden sm:inline">Menu</span>
+          </button>
+        )}
 
         <main className="flex-1 min-w-0 min-h-0 h-full overflow-hidden flex flex-col">
           {activeNav === "live-map" ? (
@@ -307,19 +323,17 @@ export default function App() {
                   <MetDriversPanel />
                 </div>
               </div>
-
-              {/* Action Row: Generate Alert & SITREP */}
-              <div className="mt-8 mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button onClick={handleSendAlert} className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3.5 rounded-lg font-extrabold text-base transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)]">
-                  <ShieldAlert size={20} /> DISPATCH MULTI-CHANNEL &amp; BLE MESH ALERT
-                </button>
-                <button onClick={() => setShowNdrfModal(true)} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white py-3.5 rounded-lg font-extrabold text-base transition-all shadow-md">
-                  <FileText size={20} /> VIEW AUTOMATED NDRF SITREP REPORT
-                </button>
-              </div>
             </div>
           ) : activeNav === "infrastructure" ? (
             <InfrastructureCommandView selectedCell={selectedCell} monitoredLocation={monitoredLocation} forecastHour={forecastHour} />
+          ) : activeNav === "reports" ? (
+            <ReportsAnalyticsView 
+              onTriggerAlert={handleSendAlert}
+              onTriggerSitrep={() => setShowNdrfModal(true)}
+              locationName={locationName}
+              maxRisks={maxRisks}
+              selectedCell={selectedCell}
+            />
           ) : (
             <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center text-ink-dim p-10">
               <div className="text-6xl mb-4">🚧</div>
@@ -423,16 +437,25 @@ export default function App() {
         {showNdrfModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowNdrfModal(false); }}
+            className="fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center backdrop-blur-sm p-4"
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-              className="bg-white text-black rounded w-[700px] p-10 shadow-2xl font-serif"
+              className="bg-white text-black rounded-2xl w-full max-w-2xl p-6 sm:p-8 shadow-2xl font-serif max-h-[92vh] overflow-y-auto relative"
             >
-              <div className="border-b-2 border-black pb-4 mb-6 text-center">
-                <h1 className="text-2xl font-black uppercase tracking-widest mb-2">GOVERNMENT OF INDIA</h1>
-                <h2 className="text-base font-bold">NATIONAL DISASTER RESPONSE FORCE (NDRF)</h2>
-                <h3 className="text-sm font-semibold text-gray-700 mt-2">AUTOMATED SITUATIONAL REPORT (SITREP)</h3>
+              <button 
+                onClick={() => setShowNdrfModal(false)}
+                className="absolute top-4 right-4 text-gray-500 hover:text-black w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-base font-bold transition-colors"
+                title="Close SITREP"
+              >
+                ✕
+              </button>
+
+              <div className="border-b-2 border-black pb-4 mb-6 text-center pr-6">
+                <h1 className="text-xl sm:text-2xl font-black uppercase tracking-widest mb-1 text-gray-900">GOVERNMENT OF INDIA</h1>
+                <h2 className="text-sm sm:text-base font-bold text-gray-800">NATIONAL DISASTER RESPONSE FORCE (NDRF)</h2>
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-600 mt-1">AUTOMATED SITUATIONAL REPORT (SITREP)</h3>
               </div>
               
               <div className="text-sm leading-relaxed">

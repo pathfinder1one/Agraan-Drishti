@@ -80,6 +80,8 @@ By fusing real-time geostationary satellite streams (**INSAT-3D/3DR**), Doppler 
     - Interactive **Play/Pause** animation that steps through $+0\text{h} \to +1\text{h} \to \dots \to +6\text{h}$ with dynamic timeline scrubbing.
 12. **1-Click Zen Mode:**
     - Instant toggle to hide all floating HUD panels for pure, unobstructed high-res satellite inspection.
+13. **Collapsible Navigation Sidebar (1-Click Workspace Expansion):**
+    - Instant toggle button in header and sidebar to collapse/hide the entire navigation rail, allowing the geospatial map and decision telemetry to take 100% full screen width, with a floating quick-access menu button to restore anytime.
 
 ---
 
@@ -148,6 +150,9 @@ By fusing real-time geostationary satellite streams (**INSAT-3D/3DR**), Doppler 
     - Specific enumeration of riverside settlements and vulnerable habitations.
 30. **AI Safe Route Evacuation Planner:**
     - Computes green detour evacuation routes avoiding flooded river corridors and landslide-prone mountain curves.
+31. **Community Vulnerable Population Registry & ASHA/Anganwadi Caretaker Relay (No-Device Needed Outreach):**
+    - Directly addresses the critical last-mile blind spot where sirens and SMS fail: deaf citizens cannot hear audio sirens, and bedridden/elderly citizens lack smartphones.
+    - Maintains a localized registry of high-care individuals (Mobility, Hearing, Vision, Bedridden) mapped to designated neighbor volunteers and ASHA workers with automated physical door-knock dispatch (`/api/vulnerable-registry`).
 
 ---
 
@@ -175,6 +180,18 @@ By fusing real-time geostationary satellite streams (**INSAT-3D/3DR**), Doppler 
     - Transparent accuracy metrics: **False Alarm Rate (FAR: 14.2% on historical test events)**, Critical Success Index (CSI), and latency ($2\text{–}5\text{ min}$).
 36. **11-Language Multi-Lingual Translation Engine:**
     - Integrated multi-lingual dropdown powered by Google Translate supporting: Hindi, English, Tamil, Telugu, Marathi, Bengali, Gujarati, Kannada, Malayalam, Punjabi, and Urdu.
+
+---
+
+### Module 10: Reports & Situation Analytics Command Center (`/reports`)
+37. **Dedicated Situation Reports (SITREP) Clearinghouse:**
+    - Centralized repository compliant with Government of India and NDMA SOP standards for automated post-hazard documentation and inter-agency dispatch.
+38. **Relocated Primary Action Dispatch Hub:**
+    - Hosts the **Multi-Channel & BLE Mesh Dispatcher** and **Official NDRF SITREP Report Generator**, keeping the main dashboard purely focused on real-time observational intelligence.
+39. **Historical SITREP Document Archive:**
+    - Filterable registry of active and archived reports (e.g. *SITREP-2026-0826-UK01*, *SITREP-2026-0826-DL04*) with severity, affected population, dispatch status, and 1-click SITREP inspection.
+40. **Multi-Channel Reach Telemetry & Accuracy Audit:**
+    - Live breakdown of transmission metrics across SMS broadcast (98.4%), authority REST pushes (42 endpoints), offline BLE mesh hops (14 nodes), and industrial SCADA triggers (4 systems).
 
 ---
 

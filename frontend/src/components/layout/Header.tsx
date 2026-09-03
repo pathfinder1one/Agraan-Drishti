@@ -8,6 +8,8 @@ import {
   Globe2,
   Bell,
   Settings2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -21,9 +23,21 @@ interface HeaderProps {
   locationName: string;
   isLiveLocation: boolean;
   maxRisks: Record<string, number>;
+  sidebarOpen?: boolean;
+  setSidebarOpen?: (val: boolean) => void;
 }
 
-export function Header({ searchQuery, setSearchQuery, handleSearch, isSearching, locationName, isLiveLocation, maxRisks }: HeaderProps) {
+export function Header({ 
+  searchQuery, 
+  setSearchQuery, 
+  handleSearch, 
+  isSearching, 
+  locationName, 
+  isLiveLocation, 
+  maxRisks,
+  sidebarOpen = true,
+  setSidebarOpen 
+}: HeaderProps) {
   const [darkMode, setDarkMode] = useState(true);
   const [currentLang, setCurrentLang] = useState('en');
 
@@ -96,7 +110,18 @@ export function Header({ searchQuery, setSearchQuery, handleSearch, isSearching,
 
   return (
     <header className="sticky top-0 z-30 flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-panel/95 backdrop-blur">
-      <div className="flex items-center gap-2.5 pr-4 mr-1 border-r border-border-soft">
+      <div className="flex items-center gap-2 pr-4 mr-1 border-r border-border-soft">
+        <button
+          onClick={() => setSidebarOpen?.(!sidebarOpen)}
+          className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shrink-0 ${
+            sidebarOpen
+              ? "bg-panel-alt hover:bg-panel border-border text-ink-dim hover:text-white"
+              : "bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/50 text-blue-400"
+          }`}
+          title={sidebarOpen ? "Hide sidebar navigation" : "Show sidebar navigation"}
+        >
+          {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} className="animate-pulse" />}
+        </button>
         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br from-blue-500 to-blue-700">
           <ShieldAlert size={18} className="text-white" />
         </div>

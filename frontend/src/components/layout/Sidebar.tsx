@@ -1,15 +1,33 @@
-import { CircleDot } from "lucide-react";
+import { CircleDot, PanelLeftClose } from "lucide-react";
 import { NAV_ITEMS, DATA_SOURCES } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   activeNav: string;
   onSelect: (id: string) => void;
+  isOpen?: boolean;
+  onToggle?: (open: boolean) => void;
 }
 
-export function Sidebar({ activeNav, onSelect }: SidebarProps) {
+export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle }: SidebarProps) {
+  if (!isOpen) return null;
+
   return (
-    <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border bg-panel overflow-y-auto h-full">
+    <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border bg-panel overflow-y-auto h-full transition-all duration-300">
+      {/* Sidebar Header with Hide Button */}
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border-soft">
+        <span className="text-[11px] font-bold tracking-wider uppercase text-ink-faint">
+          Navigation
+        </span>
+        <button
+          onClick={() => onToggle?.(false)}
+          className="p-1 rounded-md text-ink-faint hover:text-white hover:bg-panel-alt transition-colors flex items-center gap-1 text-[11px]"
+          title="Hide Sidebar"
+        >
+          <PanelLeftClose size={15} />
+        </button>
+      </div>
+
       <nav className="p-3 space-y-0.5">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
