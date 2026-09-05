@@ -11,3 +11,5 @@ fastapi
 uvicorn[standard]
 pydantic
 websockets
+satpy
+eumdac

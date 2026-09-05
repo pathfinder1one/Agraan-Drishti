@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { RiskMapPanel } from "@/components/dashboard/RiskMapPanel";
@@ -7,6 +7,7 @@ import { ExposureOverviewPanel } from "@/components/dashboard/ExposureOverviewPa
 import { RecommendedActionsPanel } from "@/components/dashboard/RecommendedActionsPanel";
 import { NowcastTimeline } from "@/components/dashboard/NowcastTimeline";
 import { SatellitePanel } from "@/components/dashboard/SatellitePanel";
+import { SatelliteStateDashboard } from "@/components/dashboard/SatelliteStateDashboard";
 import { RadarPanel } from "@/components/dashboard/RadarPanel";
 import { MetDriversPanel } from "@/components/dashboard/MetDriversPanel";
 import { ImpactPredictionPanel } from "@/components/dashboard/ImpactPredictionPanel";
@@ -42,6 +43,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [locationName, setLocationName] = useState("Rudraprayag, Uttarakhand");
+  const [selectedState, setSelectedState] = useState("Uttarakhand");
   const [isLiveLocation, setIsLiveLocation] = useState(false);
   const [satelliteStatus, setSatelliteStatus] = useState(null);
   const [satelliteBusy, setSatelliteBusy] = useState(false);
@@ -49,6 +51,7 @@ export default function App() {
   const [liveAlerts, setLiveAlerts] = useState([]);
   const [realtimeWeather, setRealtimeWeather] = useState(null);
   const [radarLive, setRadarLive] = useState(null);
+  const lastInferenceRef = useRef(null);
 
   const API_BASE = "http://localhost:8000";
 
@@ -144,11 +147,32 @@ export default function App() {
   }, [activeLayer, forecastHour, monitoredLocation, satelliteRevision]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/satellite/status`)
-      .then(res => res.json())
-      .then(setSatelliteStatus)
-      .catch(console.error);
-  }, [satelliteRevision]);
+    let cancelled = false;
+    const loadSatelliteStatus = () => {
+      fetch(`${API_BASE}/api/satellite/status`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled) return;
+          if (
+            lastInferenceRef.current &&
+            data.inference_last_run_utc &&
+            data.inference_last_run_utc !== lastInferenceRef.current
+          ) {
+            setSatelliteRevision((revision) => revision + 1);
+          }
+          lastInferenceRef.current = data.inference_last_run_utc || null;
+          setSatelliteStatus(data);
+        })
+        .catch(console.error);
+    };
+
+    loadSatelliteStatus();
+    const timer = window.setInterval(loadSatelliteStatus, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const lat = selectedCell ? selectedCell.lat : monitoredLocation.lat;
@@ -286,6 +310,9 @@ export default function App() {
     const parts = displayName.split(',').map(s => s.trim());
     const shortName = parts.slice(0, 2).join(', ');
     setLocationName(shortName || displayName);
+    if (loc.state || loc.address?.state) {
+      setSelectedState(loc.state || loc.address?.state || "");
+    }
     setIsLiveLocation(false);
     setSearchQuery('');
     setShowAutoAlert(false);
@@ -313,18 +340,31 @@ export default function App() {
         }
       }
 
-      // 2. 100% Dynamic live geocoding via Open-Meteo & Nominatim backend proxy
+      // 2. Geocoding via Nominatim with Indian country code & address details
       try {
-        const res = await fetch(`${API_BASE}/api/geocode?q=${encodeURIComponent(query)}`);
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(query)}&countrycodes=in`,
+        );
         const data = await res.json();
-        
+
         if (data && data.length > 0) {
-          handleSelectLocation(data[0]);
+          const lat = parseFloat(data[0].lat);
+          const lon = parseFloat(data[0].lon);
+          setMonitoredLocation({ lat, lon });
+          setSelectedCell({ lat, lon });
+          const cityName = data[0].display_name.split(',')[0];
+          const stateName = data[0].address?.state || "";
+          setLocationName(`${cityName}${stateName ? `, ${stateName}` : ''}`);
+          setSelectedState(stateName || cityName);
+          setIsLiveLocation(false);
+          setSearchQuery('');
+          setShowAutoAlert(false);
         } else {
-          alert(`Could not find coordinates for "${query}". Please check spelling or enter Lat, Lon.`);
+          alert(`Could not find coordinates for "${query}". Please try a valid Indian city name.`);
         }
       } catch (err) {
         console.error("Geocoding failed", err);
+        alert("Geocoding failed. Check network connection.");
       } finally {
         setIsSearching(false);
       }
@@ -403,6 +443,19 @@ export default function App() {
               onForecastHourChange={setForecastHour}
               satelliteStatus={satelliteStatus}
               satelliteRevision={satelliteRevision}
+            />
+          ) : activeNav === "satellite-states" ? (
+            <SatelliteStateDashboard
+              selectedLocationName={locationName}
+              selectedState={selectedState}
+              onBack={() => setActiveNav("dashboard")}
+              onSelectState={(state) => {
+                setMonitoredLocation({ lat: state.lat, lon: state.lon });
+                setSelectedCell({ lat: state.lat, lon: state.lon });
+                setLocationName(`${state.state} satellite reference location`);
+                setSelectedState(state.state);
+                setActiveNav("dashboard");
+              }}
             />
           ) : activeNav === "dashboard" ? (
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 space-y-5 pb-8 w-full max-w-[1920px] mx-auto min-w-0">
@@ -502,8 +555,10 @@ export default function App() {
                 <div className="min-w-0 flex flex-col">
                   <SatellitePanel 
                     status={satelliteStatus} 
+                    monitoredLocation={monitoredLocation}
                     loading={satelliteBusy} 
                     onRefresh={handleSatelliteRefresh}
+                    onOpenDashboard={() => setActiveNav("satellite-states")}
                     maxRisks={maxRisks}
                   />
                 </div>

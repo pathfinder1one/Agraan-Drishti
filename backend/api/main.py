@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 from config import (
     CORS_ORIGINS, API_HOST, API_PORT,
-    GRID_SIZE, LAT_MIN, LON_MIN, GRID_RESOLUTION,
+    GRID_SIZE, LAT_MIN, LAT_MAX, LON_MIN, LON_MAX, GRID_RESOLUTION,
     FORECAST_HOURS, EVENT_TYPES, ALERT_THRESHOLDS,
     CAPE_THRESHOLDS, IWV_RATE_THRESHOLD, CONVERGENCE_THRESHOLD, SHEAR_THRESHOLD,
     NUM_FEATURES, SEQ_LEN
@@ -209,8 +209,10 @@ satellite_index = None
 satellite_metadata = None
 satellite_last_ingest_utc = None
 satellite_last_error = None
+inference_last_run_utc = None
+inference_last_error = None
 satellite_scheduler_task = None
-SATELLITE_POLL_MINUTES = max(1, int(os.getenv("SATELLITE_POLL_MINUTES", "15")))
+SATELLITE_POLL_MINUTES = max(1, int(os.getenv("SATELLITE_POLL_MINUTES", "180")))
 SATELLITE_SCHEDULER_ENABLED = os.getenv("SATELLITE_SCHEDULER_ENABLED", "1").lower() not in {"0", "false", "no"}
 
 try:
@@ -257,12 +259,26 @@ def _ingest_satellite_once():
     return result
 
 
+def _run_live_inference_once():
+    """Run one forecast cycle after a new satellite tensor is available."""
+    global inference_last_run_utc, inference_last_error
+    try:
+        predictions = get_real_prediction("flash_flood", 0, use_model=True)
+        inference_last_run_utc = datetime.now(timezone.utc).isoformat()
+        inference_last_error = None
+        return {"event_types": sorted(predictions), "status": "SUCCESS"}
+    except Exception as exc:
+        inference_last_error = str(exc)
+        raise
+
+
 async def _satellite_poll_loop():
     """Keep the local/demo pipeline fresh without requiring an external API."""
     global satellite_last_error
     while True:
         try:
             await asyncio.to_thread(_ingest_satellite_once)
+            await asyncio.to_thread(_run_live_inference_once)
         except Exception as exc:
             satellite_last_error = str(exc)
             print(f"[!] Satellite polling failed: {exc}")
@@ -481,8 +497,9 @@ def get_radar_live_endpoint():
 def satellite_status():
     """Return satellite ingestion and model-fusion status."""
     client_status = satellite_worker.client.get_status()
+    is_eumetsat = client_status["source"].startswith("eumetsat")
     return {
-        "pipeline": "INSAT-3DR CTT convective proxy",
+        "pipeline": "Meteosat-9 SEVIRI IR_108 convective proxy" if is_eumetsat else "INSAT-3DR CTT convective proxy",
         "source": client_status["source"],
         "connection_status": client_status["status"],
         "status": "ready" if satellite_index is not None else "not_ingested",
@@ -493,6 +510,8 @@ def satellite_status():
         "last_tensor": satellite_metadata,
         "last_update_utc": satellite_last_ingest_utc,
         "last_error": satellite_last_error,
+        "inference_last_run_utc": inference_last_run_utc,
+        "inference_last_error": inference_last_error,
         "scheduler_enabled": SATELLITE_SCHEDULER_ENABLED,
         "poll_minutes": SATELLITE_POLL_MINUTES,
     }
@@ -513,7 +532,11 @@ def ingest_satellite():
 
 
 @app.get("/api/satellite/image")
-def get_satellite_image():
+def get_satellite_image(
+    center_lat: Optional[float] = None,
+    center_lon: Optional[float] = None,
+    crop: bool = False,
+):
     """Return the raw satellite tensor as a transparent PNG overlay for Leaflet."""
     from fastapi.responses import StreamingResponse
     from PIL import Image
@@ -529,6 +552,13 @@ def get_satellite_image():
         return StreamingResponse(buf, media_type="image/png")
 
     img_array = satellite_index.cpu().numpy()
+    if crop and center_lat is not None and center_lon is not None:
+        row = round((center_lat - LAT_MIN) / (LAT_MAX - LAT_MIN) * (img_array.shape[0] - 1))
+        col = round((center_lon - LON_MIN) / (LON_MAX - LON_MIN) * (img_array.shape[1] - 1))
+        half_size = 55
+        row_start = max(0, min(img_array.shape[0] - 2 * half_size, row - half_size))
+        col_start = max(0, min(img_array.shape[1] - 2 * half_size, col - half_size))
+        img_array = img_array[row_start:row_start + 2 * half_size, col_start:col_start + 2 * half_size]
     
     # We flip it upside down because tensors often have origin at bottom-left
     # while images have origin at top-left. Wait, India is in Northern Hemisphere.
@@ -657,6 +687,49 @@ CITIES_CATALOG = [
     {"id": "chennai", "name": "Chennai", "state": "Tamil Nadu", "lat": 13.0827, "lon": 80.2707, "type": "Coastal Delta Basin"},
     {"id": "kolkata", "name": "Kolkata", "state": "West Bengal", "lat": 22.5726, "lon": 88.3639, "type": "Hooghly Delta"}
 ]
+
+# State/UT reference locations used for the national command summary. Individual
+# city/district risk remains available from the full 310x310 prediction grid.
+STATE_REFERENCE_POINTS = [
+    ("Andhra Pradesh", 16.51, 80.65), ("Arunachal Pradesh", 27.10, 93.62),
+    ("Assam", 26.14, 91.74), ("Bihar", 25.61, 85.14), ("Chhattisgarh", 21.25, 81.63),
+    ("Goa", 15.49, 73.83), ("Gujarat", 23.02, 72.57), ("Haryana", 30.73, 76.78),
+    ("Himachal Pradesh", 31.10, 77.17), ("Jharkhand", 23.34, 85.31), ("Karnataka", 12.97, 77.59),
+    ("Kerala", 8.52, 76.94), ("Madhya Pradesh", 23.26, 77.41), ("Maharashtra", 19.08, 72.88),
+    ("Manipur", 24.82, 93.94), ("Meghalaya", 25.58, 91.89), ("Mizoram", 23.73, 92.72),
+    ("Nagaland", 25.67, 94.11), ("Odisha", 20.30, 85.82), ("Punjab", 30.90, 75.86),
+    ("Rajasthan", 26.91, 75.79), ("Sikkim", 27.33, 88.61), ("Tamil Nadu", 13.08, 80.27),
+    ("Telangana", 17.39, 78.49), ("Tripura", 23.83, 91.28), ("Uttar Pradesh", 26.85, 80.95),
+    ("Uttarakhand", 30.32, 78.03), ("West Bengal", 22.57, 88.36), ("Delhi", 28.61, 77.21),
+    ("Jammu & Kashmir", 34.08, 74.80), ("Ladakh", 34.15, 77.58), ("Puducherry", 11.93, 79.83),
+    ("Chandigarh", 30.73, 76.78), ("Andaman & Nicobar", 11.67, 92.74),
+    ("Dadra & Nagar Haveli and Daman & Diu", 20.27, 73.02), ("Lakshadweep", 10.57, 72.64),
+]
+
+
+@app.get("/api/state-risk-summary")
+def state_risk_summary(forecast_hour: int = 0):
+    """Live model risk at a representative location for every Indian state/UT."""
+    all_grids = get_real_prediction("flash_flood", forecast_hour, use_model=True)
+    states = []
+    for state, lat, lon in STATE_REFERENCE_POINTS:
+        row, col = latlon_to_grid(lat, lon)
+        row_start, row_end = max(0, row - 2), min(310, row + 3)
+        col_start, col_end = max(0, col - 2), min(310, col + 3)
+        risks = {
+            key: float(np.nanmax(grid[row_start:row_end, col_start:col_end]))
+            for key, grid in all_grids.items()
+        }
+        overall = max(risks.values())
+        level = "severe" if overall >= .75 else "high" if overall >= .55 else "moderate" if overall >= .35 else "low"
+        states.append({
+            "state": state, "lat": lat, "lon": lon, "level": level,
+            "overall_risk": round(overall * 100, 1),
+            "flash_flood": round(risks["flash_flood"] * 100, 1),
+            "cloudburst": round(risks["cloudburst"] * 100, 1),
+            "thunderstorm": round(risks["thunderstorm"] * 100, 1),
+        })
+    return {"forecast_hour": forecast_hour, "aggregation": "state reference-location risk", "states": sorted(states, key=lambda item: item["overall_risk"], reverse=True)}
 
 
 @app.get("/api/monitored-locations")
@@ -898,6 +971,7 @@ def get_cascading_chain(lat: float, lon: float, forecast_hour: int = 1):
     mesh_hops = int(6 + (ff + cb) * 10)
 
     if is_mountain:
+        sequence_label = "Cloudburst ➔ Hydro-Surge ➔ Landslide"
         step_1_hazard = "Cloudburst Initiation"
         step_1_desc = f"Convective updraft triggers localized precipitation over {basin}."
         step_2_hazard = "Flash Flood Hydro-Surge"
@@ -907,6 +981,7 @@ def get_cascading_chain(lat: float, lon: float, forecast_hour: int = 1):
         step_4_hazard = "Mountain Transit Corridor Severed"
         step_4_desc = f"Debris dam & rockfall cuts off transit on {corridor}."
     elif is_coastal:
+        sequence_label = "High Tide ➔ Sluice Surge ➔ Coastal Flood"
         step_1_hazard = "Convective Torrent & Astronomical High Tide"
         step_1_desc = f"Intense convective rainband aligns with high tide peak over {basin}."
         step_2_hazard = "Stormwater Sluice Overtopping"
@@ -916,6 +991,7 @@ def get_cascading_chain(lat: float, lon: float, forecast_hour: int = 1):
         step_4_hazard = "Coastal Highway & Rail Suburban Line Blocked"
         step_4_desc = f"Transit halted and signal circuits tripped on {corridor}."
     else:
+        sequence_label = "Downpour ➔ Drainage Surge ➔ Inundation"
         step_1_hazard = "Severe Convective Downpour"
         step_1_desc = f"Heavy localized downpour saturates {basin} regional drainage network."
         step_2_hazard = "Canal & Drainage Basin Hydro-Surge"
@@ -971,6 +1047,7 @@ def get_cascading_chain(lat: float, lon: float, forecast_hour: int = 1):
         "corridor": corridor,
         "river": river,
         "basin": basin,
+        "sequence_label": sequence_label,
         "is_mountain": is_mountain,
         "rain_rate_mmh": rain_rate,
         "river_crest_m": river_crest,

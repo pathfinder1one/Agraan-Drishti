@@ -19,8 +19,12 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 
-from api.dynamic_infrastructure import lookup_district_state
-from api.realtime_weather import fetch_realtime_weather
+try:
+    from backend.api.dynamic_infrastructure import lookup_district_state
+    from backend.api.realtime_weather import fetch_realtime_weather
+except ImportError:
+    from api.dynamic_infrastructure import lookup_district_state
+    from api.realtime_weather import fetch_realtime_weather
 
 logger = logging.getLogger("DisasterAlertsService")
 

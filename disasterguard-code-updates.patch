@@ -1,0 +1,1566 @@
+diff --git a/.gitattributes b/.gitattributes
+index dfe0770..eba1110 100644
+--- a/.gitattributes
++++ b/.gitattributes
+@@ -1,2 +1,2 @@
+ # Auto detect text files and perform LF normalization
+-* text=auto
++* text=auto
+\ No newline at end of file
+diff --git a/backend/api/main.py b/backend/api/main.py
+index a5a0201..c36a3e6 100644
+--- a/backend/api/main.py
++++ b/backend/api/main.py
+@@ -16,7 +16,7 @@ from datetime import datetime, timezone
+ 
+ from config import (
+     CORS_ORIGINS, API_HOST, API_PORT,
+-    GRID_SIZE, LAT_MIN, LON_MIN, GRID_RESOLUTION,
++    GRID_SIZE, LAT_MIN, LAT_MAX, LON_MIN, LON_MAX, GRID_RESOLUTION,
+     FORECAST_HOURS, EVENT_TYPES, ALERT_THRESHOLDS,
+     CAPE_THRESHOLDS, IWV_RATE_THRESHOLD, CONVERGENCE_THRESHOLD, SHEAR_THRESHOLD,
+     NUM_FEATURES, SEQ_LEN
+@@ -194,8 +194,10 @@ satellite_index = None
+ satellite_metadata = None
+ satellite_last_ingest_utc = None
+ satellite_last_error = None
++inference_last_run_utc = None
++inference_last_error = None
+ satellite_scheduler_task = None
+-SATELLITE_POLL_MINUTES = max(1, int(os.getenv("SATELLITE_POLL_MINUTES", "15")))
++SATELLITE_POLL_MINUTES = max(1, int(os.getenv("SATELLITE_POLL_MINUTES", "180")))
+ SATELLITE_SCHEDULER_ENABLED = os.getenv("SATELLITE_SCHEDULER_ENABLED", "1").lower() not in {"0", "false", "no"}
+ 
+ try:
+@@ -242,12 +244,26 @@ def _ingest_satellite_once():
+     return result
+ 
+ 
++def _run_live_inference_once():
++    """Run one forecast cycle after a new satellite tensor is available."""
++    global inference_last_run_utc, inference_last_error
++    try:
++        predictions = get_real_prediction("flash_flood", 0, use_model=True)
++        inference_last_run_utc = datetime.now(timezone.utc).isoformat()
++        inference_last_error = None
++        return {"event_types": sorted(predictions), "status": "SUCCESS"}
++    except Exception as exc:
++        inference_last_error = str(exc)
++        raise
++
++
+ async def _satellite_poll_loop():
+     """Keep the local/demo pipeline fresh without requiring an external API."""
+     global satellite_last_error
+     while True:
+         try:
+             await asyncio.to_thread(_ingest_satellite_once)
++            await asyncio.to_thread(_run_live_inference_once)
+         except Exception as exc:
+             satellite_last_error = str(exc)
+             print(f"[!] Satellite polling failed: {exc}")
+@@ -428,8 +444,9 @@ def root():
+ def satellite_status():
+     """Return satellite ingestion and model-fusion status."""
+     client_status = satellite_worker.client.get_status()
++    is_eumetsat = client_status["source"].startswith("eumetsat")
+     return {
+-        "pipeline": "INSAT-3DR CTT convective proxy",
++        "pipeline": "Meteosat-9 SEVIRI IR_108 convective proxy" if is_eumetsat else "INSAT-3DR CTT convective proxy",
+         "source": client_status["source"],
+         "connection_status": client_status["status"],
+         "status": "ready" if satellite_index is not None else "not_ingested",
+@@ -440,6 +457,8 @@ def satellite_status():
+         "last_tensor": satellite_metadata,
+         "last_update_utc": satellite_last_ingest_utc,
+         "last_error": satellite_last_error,
++        "inference_last_run_utc": inference_last_run_utc,
++        "inference_last_error": inference_last_error,
+         "scheduler_enabled": SATELLITE_SCHEDULER_ENABLED,
+         "poll_minutes": SATELLITE_POLL_MINUTES,
+     }
+@@ -460,7 +479,11 @@ def ingest_satellite():
+ 
+ 
+ @app.get("/api/satellite/image")
+-def get_satellite_image():
++def get_satellite_image(
++    center_lat: Optional[float] = None,
++    center_lon: Optional[float] = None,
++    crop: bool = False,
++):
+     """Return the raw satellite tensor as a transparent PNG overlay for Leaflet."""
+     from fastapi.responses import StreamingResponse
+     from PIL import Image
+@@ -476,6 +499,13 @@ def get_satellite_image():
+         return StreamingResponse(buf, media_type="image/png")
+ 
+     img_array = satellite_index.cpu().numpy()
++    if crop and center_lat is not None and center_lon is not None:
++        row = round((center_lat - LAT_MIN) / (LAT_MAX - LAT_MIN) * (img_array.shape[0] - 1))
++        col = round((center_lon - LON_MIN) / (LON_MAX - LON_MIN) * (img_array.shape[1] - 1))
++        half_size = 55
++        row_start = max(0, min(img_array.shape[0] - 2 * half_size, row - half_size))
++        col_start = max(0, min(img_array.shape[1] - 2 * half_size, col - half_size))
++        img_array = img_array[row_start:row_start + 2 * half_size, col_start:col_start + 2 * half_size]
+     
+     # We flip it upside down because tensors often have origin at bottom-left
+     # while images have origin at top-left. Wait, India is in Northern Hemisphere.
+@@ -605,6 +635,49 @@ CITIES_CATALOG = [
+     {"id": "kolkata", "name": "Kolkata", "state": "West Bengal", "lat": 22.5726, "lon": 88.3639, "type": "Hooghly Delta"}
+ ]
+ 
++# State/UT reference locations used for the national command summary. Individual
++# city/district risk remains available from the full 310x310 prediction grid.
++STATE_REFERENCE_POINTS = [
++    ("Andhra Pradesh", 16.51, 80.65), ("Arunachal Pradesh", 27.10, 93.62),
++    ("Assam", 26.14, 91.74), ("Bihar", 25.61, 85.14), ("Chhattisgarh", 21.25, 81.63),
++    ("Goa", 15.49, 73.83), ("Gujarat", 23.02, 72.57), ("Haryana", 30.73, 76.78),
++    ("Himachal Pradesh", 31.10, 77.17), ("Jharkhand", 23.34, 85.31), ("Karnataka", 12.97, 77.59),
++    ("Kerala", 8.52, 76.94), ("Madhya Pradesh", 23.26, 77.41), ("Maharashtra", 19.08, 72.88),
++    ("Manipur", 24.82, 93.94), ("Meghalaya", 25.58, 91.89), ("Mizoram", 23.73, 92.72),
++    ("Nagaland", 25.67, 94.11), ("Odisha", 20.30, 85.82), ("Punjab", 30.90, 75.86),
++    ("Rajasthan", 26.91, 75.79), ("Sikkim", 27.33, 88.61), ("Tamil Nadu", 13.08, 80.27),
++    ("Telangana", 17.39, 78.49), ("Tripura", 23.83, 91.28), ("Uttar Pradesh", 26.85, 80.95),
++    ("Uttarakhand", 30.32, 78.03), ("West Bengal", 22.57, 88.36), ("Delhi", 28.61, 77.21),
++    ("Jammu & Kashmir", 34.08, 74.80), ("Ladakh", 34.15, 77.58), ("Puducherry", 11.93, 79.83),
++    ("Chandigarh", 30.73, 76.78), ("Andaman & Nicobar", 11.67, 92.74),
++    ("Dadra & Nagar Haveli and Daman & Diu", 20.27, 73.02), ("Lakshadweep", 10.57, 72.64),
++]
++
++
++@app.get("/api/state-risk-summary")
++def state_risk_summary(forecast_hour: int = 0):
++    """Live model risk at a representative location for every Indian state/UT."""
++    all_grids = get_real_prediction("flash_flood", forecast_hour, use_model=True)
++    states = []
++    for state, lat, lon in STATE_REFERENCE_POINTS:
++        row, col = latlon_to_grid(lat, lon)
++        row_start, row_end = max(0, row - 2), min(310, row + 3)
++        col_start, col_end = max(0, col - 2), min(310, col + 3)
++        risks = {
++            key: float(np.nanmax(grid[row_start:row_end, col_start:col_end]))
++            for key, grid in all_grids.items()
++        }
++        overall = max(risks.values())
++        level = "severe" if overall >= .75 else "high" if overall >= .55 else "moderate" if overall >= .35 else "low"
++        states.append({
++            "state": state, "lat": lat, "lon": lon, "level": level,
++            "overall_risk": round(overall * 100, 1),
++            "flash_flood": round(risks["flash_flood"] * 100, 1),
++            "cloudburst": round(risks["cloudburst"] * 100, 1),
++            "thunderstorm": round(risks["thunderstorm"] * 100, 1),
++        })
++    return {"forecast_hour": forecast_hour, "aggregation": "state reference-location risk", "states": sorted(states, key=lambda item: item["overall_risk"], reverse=True)}
++
+ 
+ @app.get("/api/monitored-locations")
+ def get_monitored_locations(forecast_hour: int = 2):
+diff --git a/config.py b/config.py
+index 6462209..86f326d 100644
+--- a/config.py
++++ b/config.py
+@@ -98,4 +98,8 @@ SHEAR_THRESHOLD = 15.0
+ # ──────────────────────────────────────────────
+ API_HOST = "0.0.0.0"
+ API_PORT = 8000
+-CORS_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
++CORS_ORIGINS = [
++    "http://localhost:5173",
++    "http://127.0.0.1:5173",
++    "http://localhost:3000",
++]
+diff --git a/frontend/package-lock.json b/frontend/package-lock.json
+index 6c81e3c..3d76b5f 100644
+--- a/frontend/package-lock.json
++++ b/frontend/package-lock.json
+@@ -1402,6 +1402,7 @@
+       "resolved": "https://registry.npmjs.org/@types/node/-/node-26.4.0.tgz",
+       "integrity": "sha512-faiGnoIrLH/V8cibOMEAZ8pMw6oXqSukl29ra4mN8GdaB2ZewzeaLj+INpV5N+Z1eKWzY+IzaIZH2EIR6YZRNQ==",
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "undici-types": "~8.3.0"
+       }
+@@ -1412,6 +1413,7 @@
+       "integrity": "sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==",
+       "devOptional": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "csstype": "^3.2.2"
+       }
+@@ -1993,6 +1995,7 @@
+         }
+       ],
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "baseline-browser-mapping": "^2.11.12",
+         "caniuse-lite": "^1.0.30001809",
+@@ -2870,7 +2873,8 @@
+       "version": "1.9.4",
+       "resolved": "https://registry.npmjs.org/leaflet/-/leaflet-1.9.4.tgz",
+       "integrity": "sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==",
+-      "license": "BSD-2-Clause"
++      "license": "BSD-2-Clause",
++      "peer": true
+     },
+     "node_modules/leaflet.heat": {
+       "version": "0.2.0",
+@@ -3179,6 +3183,7 @@
+       "resolved": "https://registry.npmjs.org/mapbox-gl/-/mapbox-gl-3.29.0.tgz",
+       "integrity": "sha512-Fnh1WLsZMfihwRZY5scp456iQuZo9G97tTpb26bf/Ejsi/L7O+4dE9+I03VoOor2ul3DEOp6F2P3273omyVsNw==",
+       "license": "SEE LICENSE IN LICENSE.txt",
++      "peer": true,
+       "workspaces": [
+         "src/style-spec",
+         "plugins/mapbox-gl-pmtiles-provider",
+@@ -3411,6 +3416,7 @@
+       "resolved": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz",
+       "integrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
+       "license": "MIT",
++      "peer": true,
+       "engines": {
+         "node": ">=12"
+       },
+@@ -3446,6 +3452,7 @@
+         }
+       ],
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "nanoid": "^3.3.17",
+         "picocolors": "^1.1.1",
+@@ -3617,6 +3624,7 @@
+       "resolved": "https://registry.npmjs.org/react/-/react-19.2.8.tgz",
+       "integrity": "sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==",
+       "license": "MIT",
++      "peer": true,
+       "engines": {
+         "node": ">=0.10.0"
+       }
+@@ -3626,6 +3634,7 @@
+       "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-19.2.8.tgz",
+       "integrity": "sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==",
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "scheduler": "^0.27.0"
+       },
+@@ -3683,6 +3692,7 @@
+       "resolved": "https://registry.npmjs.org/react-redux/-/react-redux-9.3.0.tgz",
+       "integrity": "sha512-KQopgqFo/p/fgmAs5qz6p5RWaNAzq40WAu7fJIXnQpYxFPbJYtsJPWvGeF2rOBaY/kEuV77AVsX8TsQzKm+A/g==",
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@types/use-sync-external-store": "^0.0.6",
+         "use-sync-external-store": "^1.4.0"
+@@ -3765,7 +3775,8 @@
+       "version": "5.0.1",
+       "resolved": "https://registry.npmjs.org/redux/-/redux-5.0.1.tgz",
+       "integrity": "sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w==",
+-      "license": "MIT"
++      "license": "MIT",
++      "peer": true
+     },
+     "node_modules/redux-thunk": {
+       "version": "3.1.0",
+@@ -4291,6 +4302,7 @@
+       "integrity": "sha512-cFKLV/PRgAUlIRm5WjMjJ86jrftzpqcgH+Us+DS8mI3CDNiH30Whrz8uHL3+MOLPAgqbMBAqWdAHAphOAM+z/Q==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "lightningcss": "^1.33.0",
+         "picomatch": "^4.0.5",
+diff --git a/frontend/src/App.jsx b/frontend/src/App.jsx
+index d855c06..ac424ab 100644
+--- a/frontend/src/App.jsx
++++ b/frontend/src/App.jsx
+@@ -1,4 +1,4 @@
+-import { useState, useEffect } from "react";
++import { useState, useEffect, useRef } from "react";
+ import { Header } from "@/components/layout/Header";
+ import { Sidebar } from "@/components/layout/Sidebar";
+ import { RiskMapPanel } from "@/components/dashboard/RiskMapPanel";
+@@ -7,6 +7,7 @@ import { ExposureOverviewPanel } from "@/components/dashboard/ExposureOverviewPa
+ import { RecommendedActionsPanel } from "@/components/dashboard/RecommendedActionsPanel";
+ import { NowcastTimeline } from "@/components/dashboard/NowcastTimeline";
+ import { SatellitePanel } from "@/components/dashboard/SatellitePanel";
++import { SatelliteStateDashboard } from "@/components/dashboard/SatelliteStateDashboard";
+ import { RadarPanel } from "@/components/dashboard/RadarPanel";
+ import { MetDriversPanel } from "@/components/dashboard/MetDriversPanel";
+ import { ImpactPredictionPanel } from "@/components/dashboard/ImpactPredictionPanel";
+@@ -16,8 +17,18 @@ import { InnovationHub } from "@/components/dashboard/InnovationHub";
+ import { LiveMapFullView } from "@/components/dashboard/LiveMapFullView";
+ import { InfrastructureCommandView } from "@/components/dashboard/InfrastructureCommandView";
+ import { ReportsAnalyticsView } from "@/components/dashboard/ReportsAnalyticsView";
+-import { AnimatePresence, motion } from 'framer-motion';
+-import { ShieldAlert, Bell, Activity, ExternalLink, Map as MapIcon, Radio, FileText, Cpu, PanelLeftOpen } from 'lucide-react';
++import { AnimatePresence, motion } from "framer-motion";
++import {
++  ShieldAlert,
++  Bell,
++  Activity,
++  ExternalLink,
++  Map as MapIcon,
++  Radio,
++  FileText,
++  Cpu,
++  PanelLeftOpen,
++} from "lucide-react";
+ 
+ export default function App() {
+   const [sidebarOpen, setSidebarOpen] = useState(true);
+@@ -27,21 +38,30 @@ export default function App() {
+   const [forecastHour, setForecastHour] = useState(0);
+   const [selectedCell, setSelectedCell] = useState(null);
+   const [xaiData, setXaiData] = useState(null);
+-  const [maxRisks, setMaxRisks] = useState({ flash_flood: 0, cloudburst: 0, thunderstorm: 0 });
+-  const [monitoredLocation, setMonitoredLocation] = useState({ lat: 30.73, lon: 79.06 });
++  const [maxRisks, setMaxRisks] = useState({
++    flash_flood: 0,
++    cloudburst: 0,
++    thunderstorm: 0,
++  });
++  const [monitoredLocation, setMonitoredLocation] = useState({
++    lat: 30.73,
++    lon: 79.06,
++  });
+   const [showAutoAlert, setShowAutoAlert] = useState(false);
+   const [showNdrfModal, setShowNdrfModal] = useState(false);
+   const [showSmsModal, setShowSmsModal] = useState(false);
+   const [searchQuery, setSearchQuery] = useState("");
+   const [isSearching, setIsSearching] = useState(false);
+   const [locationName, setLocationName] = useState("Rudraprayag, Uttarakhand");
++  const [selectedState, setSelectedState] = useState("Uttarakhand");
+   const [isLiveLocation, setIsLiveLocation] = useState(false);
+   const [satelliteStatus, setSatelliteStatus] = useState(null);
+   const [satelliteBusy, setSatelliteBusy] = useState(false);
+   const [satelliteRevision, setSatelliteRevision] = useState(0);
+   const [liveAlerts, setLiveAlerts] = useState([]);
++  const lastInferenceRef = useRef(null);
+ 
+-  const API_BASE = "http://localhost:8000";
++  const API_BASE = "http://127.0.0.1:8000";
+ 
+   useEffect(() => {
+     if ("geolocation" in navigator) {
+@@ -54,33 +74,51 @@ export default function App() {
+ 
+           // Reverse geocode
+           try {
+-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
++            const res = await fetch(
++              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`,
++            );
+             const data = await res.json();
+             if (data && data.address) {
+-              const city = data.address.city || data.address.town || data.address.village || data.address.county || "";
++              const city =
++                data.address.city ||
++                data.address.town ||
++                data.address.village ||
++                data.address.county ||
++                "";
+               const state = data.address.state || "";
+-              setLocationName(`${city}${city && state ? ', ' : ''}${state}`);
++              setLocationName(`${city}${city && state ? ", " : ""}${state}`);
++              setSelectedState(state);
+             }
+           } catch (err) {
+             console.error("Reverse geocoding failed", err);
+           }
+         },
+         (error) => {
+-          console.warn("Geolocation denied or failed. Using fallback location.", error);
+-        }
++          console.warn(
++            "Geolocation denied or failed. Using fallback location.",
++            error,
++          );
++        },
+       );
+     }
+   }, []);
+ 
+   useEffect(() => {
+-    const layerParam = activeLayer.toLowerCase().replace(' ', '_');
+-    fetch(`${API_BASE}/api/predict?event_type=${layerParam}&forecast_hour=${forecastHour}&lat=${monitoredLocation.lat}&lon=${monitoredLocation.lon}&use_model=false`)
+-      .then(res => res.json())
+-      .then(data => {
++    const layerParam = activeLayer.toLowerCase().replace(" ", "_");
++    fetch(
++      `${API_BASE}/api/predict?event_type=${layerParam}&forecast_hour=${forecastHour}&lat=${monitoredLocation.lat}&lon=${monitoredLocation.lon}&use_model=false`,
++    )
++      .then((res) => res.json())
++      .then((data) => {
+         setHeatmapData(data.heatmap || []);
+         if (data.all_max_risks) {
+           setMaxRisks(data.all_max_risks);
+-          if ((data.all_max_risks.flash_flood > 0.85 || data.all_max_risks.cloudburst > 0.85 || data.all_max_risks.thunderstorm > 0.85) && forecastHour > 1) {
++          if (
++            (data.all_max_risks.flash_flood > 0.85 ||
++              data.all_max_risks.cloudburst > 0.85 ||
++              data.all_max_risks.thunderstorm > 0.85) &&
++            forecastHour > 1
++          ) {
+             setShowAutoAlert(true);
+           }
+         }
+@@ -89,18 +127,41 @@ export default function App() {
+   }, [activeLayer, forecastHour, monitoredLocation, satelliteRevision]);
+ 
+   useEffect(() => {
+-    fetch(`${API_BASE}/api/satellite/status`)
+-      .then(res => res.json())
+-      .then(setSatelliteStatus)
+-      .catch(console.error);
++    let cancelled = false;
++    const loadSatelliteStatus = () => {
++      fetch(`${API_BASE}/api/satellite/status`)
++        .then((res) => res.json())
++        .then((data) => {
++          if (cancelled) return;
++          if (
++            lastInferenceRef.current &&
++            data.inference_last_run_utc &&
++            data.inference_last_run_utc !== lastInferenceRef.current
++          ) {
++            setSatelliteRevision((revision) => revision + 1);
++          }
++          lastInferenceRef.current = data.inference_last_run_utc || null;
++          setSatelliteStatus(data);
++        })
++        .catch(console.error);
++    };
++
++    loadSatelliteStatus();
++    const timer = window.setInterval(loadSatelliteStatus, 60_000);
++    return () => {
++      cancelled = true;
++      window.clearInterval(timer);
++    };
+   }, []);
+ 
+   useEffect(() => {
+     let cancelled = false;
+     const loadLiveAlerts = () => {
+-      fetch(`${API_BASE}/api/alerts?event_id=live&role=authority&forecast_hour=${forecastHour}`)
+-        .then(res => res.json())
+-        .then(data => {
++      fetch(
++        `${API_BASE}/api/alerts?event_id=live&role=authority&forecast_hour=${forecastHour}`,
++      )
++        .then((res) => res.json())
++        .then((data) => {
+           if (!cancelled) setLiveAlerts(Array.isArray(data) ? data : []);
+         })
+         .catch(() => {
+@@ -119,12 +180,14 @@ export default function App() {
+   const handleSatelliteRefresh = async () => {
+     setSatelliteBusy(true);
+     try {
+-      const res = await fetch(`${API_BASE}/api/satellite/ingest`, { method: 'POST' });
++      const res = await fetch(`${API_BASE}/api/satellite/ingest`, {
++        method: "POST",
++      });
+       const data = await res.json();
+       setSatelliteStatus(data.status || data);
+-      setSatelliteRevision(revision => revision + 1);
++      setSatelliteRevision((revision) => revision + 1);
+     } catch (err) {
+-      console.error('Satellite ingestion failed', err);
++      console.error("Satellite ingestion failed", err);
+     } finally {
+       setSatelliteBusy(false);
+     }
+@@ -133,7 +196,9 @@ export default function App() {
+   const handleCellClick = async (lat, lon) => {
+     setSelectedCell({ lat, lon });
+     try {
+-      const res = await fetch(`${API_BASE}/api/xai/${lat}/${lon}?center_lat=${monitoredLocation.lat}&center_lon=${monitoredLocation.lon}`);
++      const res = await fetch(
++        `${API_BASE}/api/xai/${lat}/${lon}?center_lat=${monitoredLocation.lat}&center_lon=${monitoredLocation.lon}`,
++      );
+       const data = await res.json();
+       setXaiData(data);
+     } catch (err) {
+@@ -143,12 +208,12 @@ export default function App() {
+ 
+   const handleSendAlert = () => {
+     setShowSmsModal(true);
+-    
++
+     // Multi-Channel Guaranteed Reach: Voice Alert in Hindi
+     if ("speechSynthesis" in window) {
+       window.speechSynthesis.cancel();
+       const msg = new SpeechSynthesisUtterance(
+-        `आपातकालीन चेतावनी! राष्ट्रीय आपदा प्रबंधन प्राधिकरण द्वारा ${locationName} क्षेत्र के लिए बादल फटने और बाढ़ का रेड अलर्ट जारी किया गया है। तुरंत सुरक्षित स्थानों पर चले जाएं।`
++        `आपातकालीन चेतावनी! राष्ट्रीय आपदा प्रबंधन प्राधिकरण द्वारा ${locationName} क्षेत्र के लिए बादल फटने और बाढ़ का रेड अलर्ट जारी किया गया है। तुरंत सुरक्षित स्थानों पर चले जाएं।`,
+       );
+       msg.lang = "hi-IN";
+       msg.rate = 0.92;
+@@ -157,30 +222,37 @@ export default function App() {
+   };
+ 
+   const handleSearch = async (e) => {
+-    if (e.key === 'Enter' && searchQuery.trim() !== '') {
+-      const city = searchQuery.trim()
+-      setIsSearching(true)
+-      
++    if (e.key === "Enter" && searchQuery.trim() !== "") {
++      const city = searchQuery.trim();
++      setIsSearching(true);
++
+       try {
+-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&countrycodes=in`)
+-        const data = await res.json()
+-        
++        const res = await fetch(
++          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(city)}&countrycodes=in`,
++        );
++        const data = await res.json();
++
+         if (data && data.length > 0) {
+-          const lat = parseFloat(data[0].lat)
+-          const lon = parseFloat(data[0].lon)
+-          setMonitoredLocation({ lat, lon })
+-          setLocationName(data[0].display_name.split(',').slice(0, 2).join(', '))
+-          setIsLiveLocation(false)
+-          setSearchQuery('')
+-          setShowAutoAlert(false)
++          const lat = parseFloat(data[0].lat);
++          const lon = parseFloat(data[0].lon);
++          setMonitoredLocation({ lat, lon });
++          setLocationName(
++            `${data[0].display_name.split(",")[0]}${data[0].address?.state ? `, ${data[0].address.state}` : ""}`,
++          );
++          setSelectedState(data[0].address?.state || "");
++          setIsLiveLocation(false);
++          setSearchQuery("");
++          setShowAutoAlert(false);
+         } else {
+-          alert(`Could not find coordinates for "${city}". Please try a valid Indian city name.`)
++          alert(
++            `Could not find coordinates for "${city}". Please try a valid Indian city name.`,
++          );
+         }
+       } catch (err) {
+-        console.error(err)
+-        alert("Geocoding failed. Check network connection.")
++        console.error(err);
++        alert("Geocoding failed. Check network connection.");
+       } finally {
+-        setIsSearching(false)
++        setIsSearching(false);
+       }
+     }
+   };
+@@ -192,18 +264,36 @@ export default function App() {
+         <div className="fixed inset-0 bg-black/80 z-[9999] flex justify-center items-center backdrop-blur-sm">
+           <div className="bg-red-500 p-10 rounded-xl max-w-lg text-center text-white border-4 border-red-700 shadow-[0_0_50px_rgba(239,68,68,0.5)]">
+             <ShieldAlert size={64} className="mx-auto mb-4" />
+-            <h1 className="mb-4 text-3xl font-black uppercase">CRITICAL: EARLY WARNING TRIGGERED</h1>
+-            <p className="text-lg mb-6">Extremely severe weather formation detected in monitored region within the next {forecastHour} hours.</p>
++            <h1 className="mb-4 text-3xl font-black uppercase">
++              CRITICAL: EARLY WARNING TRIGGERED
++            </h1>
++            <p className="text-lg mb-6">
++              Extremely severe weather formation detected in monitored region
++              within the next {forecastHour} hours.
++            </p>
+             <div className="flex gap-4 justify-center">
+-              <button className="px-5 py-2.5 bg-slate-900 rounded font-semibold text-white" onClick={() => setShowAutoAlert(false)}>Acknowledge &amp; View Map</button>
+-              <button className="px-5 py-2.5 bg-white text-red-500 rounded font-bold" onClick={() => { setShowAutoAlert(false); handleSendAlert(); }}>Broadcast Alert to NDRF</button>
++              <button
++                className="px-5 py-2.5 bg-slate-900 rounded font-semibold text-white"
++                onClick={() => setShowAutoAlert(false)}
++              >
++                Acknowledge &amp; View Map
++              </button>
++              <button
++                className="px-5 py-2.5 bg-white text-red-500 rounded font-bold"
++                onClick={() => {
++                  setShowAutoAlert(false);
++                  handleSendAlert();
++                }}
++              >
++                Broadcast Alert to NDRF
++              </button>
+             </div>
+           </div>
+         </div>
+       )}
+ 
+       {/* Main UI */}
+-      <Header 
++      <Header
+         searchQuery={searchQuery}
+         setSearchQuery={setSearchQuery}
+         handleSearch={handleSearch}
+@@ -216,7 +306,12 @@ export default function App() {
+       />
+ 
+       <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden relative">
+-        <Sidebar activeNav={activeNav} onSelect={setActiveNav} isOpen={sidebarOpen} onToggle={setSidebarOpen} />
++        <Sidebar
++          activeNav={activeNav}
++          onSelect={setActiveNav}
++          isOpen={sidebarOpen}
++          onToggle={setSidebarOpen}
++        />
+ 
+         {/* Floating Quick-Open Button when Sidebar is Hidden */}
+         {!sidebarOpen && (
+@@ -233,7 +328,7 @@ export default function App() {
+         <main className="flex-1 min-w-0 min-h-0 h-full overflow-hidden flex flex-col">
+           {activeNav === "live-map" ? (
+             /* Dedicated Full-Screen Live Map Section (from Sih-frontend-map-main structure) */
+-            <LiveMapFullView 
++            <LiveMapFullView
+               heatmapData={heatmapData}
+               activeLayer={activeLayer}
+               onLayerChange={setActiveLayer}
+@@ -244,13 +339,25 @@ export default function App() {
+               onForecastHourChange={setForecastHour}
+               satelliteStatus={satelliteStatus}
+             />
++          ) : activeNav === "satellite-states" ? (
++            <SatelliteStateDashboard
++              selectedLocationName={locationName}
++              selectedState={selectedState}
++              onBack={() => setActiveNav("dashboard")}
++              onSelectState={(state) => {
++                setMonitoredLocation({ lat: state.lat, lon: state.lon });
++                setLocationName(`${state.state} satellite reference location`);
++                setSelectedState(state.state);
++                setActiveNav("dashboard");
++              }}
++            />
+           ) : activeNav === "dashboard" ? (
+             <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 space-y-5 pb-8 w-full max-w-[1920px] mx-auto min-w-0">
+               {/* Innovation Deck: Ground Truth Feedback, Voice Siren, Model Audit */}
+-              <InnovationHub 
+-                monitoredLocation={monitoredLocation} 
+-                locationName={locationName} 
+-                selectedCell={selectedCell} 
++              <InnovationHub
++                monitoredLocation={monitoredLocation}
++                locationName={locationName}
++                selectedCell={selectedCell}
+               />
+ 
+               {/* Row 1: Map Overview + AI Diagnostics (Perfect Height Balance) */}
+@@ -270,7 +377,9 @@ export default function App() {
+                           </span>
+                         </h3>
+                         <p className="text-xs text-ink-dim mt-0.5">
+-                          Active Monitoring: <strong className="text-ink">{locationName}</strong> · Satellite + Radar + ConvLSTM
++                          Active Monitoring:{" "}
++                          <strong className="text-ink">{locationName}</strong> ·
++                          Satellite + Radar + ConvLSTM
+                         </p>
+                       </div>
+                     </div>
+@@ -282,18 +391,25 @@ export default function App() {
+                     </button>
+                   </div>
+ 
+-                  <RiskMapPanel 
+-                    heatmapData={heatmapData} 
++                  <RiskMapPanel
++                    heatmapData={heatmapData}
+                     activeLayer={activeLayer}
+                     onLayerChange={setActiveLayer}
+                     onCellClick={handleCellClick}
+                     selectedCell={selectedCell}
+                     monitoredLocation={monitoredLocation}
+                   />
+-                  <NowcastTimeline forecastHour={forecastHour} onHourSelect={setForecastHour} />
++                  <NowcastTimeline
++                    forecastHour={forecastHour}
++                    onHourSelect={setForecastHour}
++                  />
+                 </div>
+                 <div className="space-y-5 min-w-0 w-full flex flex-col">
+-                  <HazardForecastPanel maxRisks={maxRisks} selectedCell={selectedCell} forecastHour={forecastHour} />
++                  <HazardForecastPanel
++                    maxRisks={maxRisks}
++                    selectedCell={selectedCell}
++                    forecastHour={forecastHour}
++                  />
+                   <XAIPanel data={xaiData} selectedCell={selectedCell} />
+                 </div>
+               </div>
+@@ -301,10 +417,17 @@ export default function App() {
+               {/* Row 2: Vulnerability, Cascading Hazard & Evacuation (3 Balanced Columns) */}
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 min-w-0 w-full">
+                 <div className="min-w-0 flex flex-col">
+-                  <ExposureOverviewPanel selectedCell={selectedCell} forecastHour={forecastHour} />
++                  <ExposureOverviewPanel
++                    selectedCell={selectedCell}
++                    forecastHour={forecastHour}
++                  />
+                 </div>
+                 <div className="min-w-0 flex flex-col">
+-                  <ImpactPredictionPanel selectedCell={selectedCell} forecastHour={forecastHour} monitoredLocation={monitoredLocation} />
++                  <ImpactPredictionPanel
++                    selectedCell={selectedCell}
++                    forecastHour={forecastHour}
++                    monitoredLocation={monitoredLocation}
++                  />
+                 </div>
+                 <div className="min-w-0 flex flex-col">
+                   <SafeRoutePanel />
+@@ -314,7 +437,13 @@ export default function App() {
+               {/* Row 3: Atmospheric Telemetry & Earth Observation (3 Balanced Columns) */}
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-5 min-w-0 w-full">
+                 <div className="min-w-0 flex flex-col">
+-                  <SatellitePanel status={satelliteStatus} loading={satelliteBusy} onRefresh={handleSatelliteRefresh} />
++                  <SatellitePanel
++                    status={satelliteStatus}
++                    monitoredLocation={monitoredLocation}
++                    loading={satelliteBusy}
++                    onRefresh={handleSatelliteRefresh}
++                    onOpenDashboard={() => setActiveNav("satellite-states")}
++                  />
+                 </div>
+                 <div className="min-w-0 flex flex-col">
+                   <RadarPanel />
+@@ -325,9 +454,13 @@ export default function App() {
+               </div>
+             </div>
+           ) : activeNav === "infrastructure" ? (
+-            <InfrastructureCommandView selectedCell={selectedCell} monitoredLocation={monitoredLocation} forecastHour={forecastHour} />
++            <InfrastructureCommandView
++              selectedCell={selectedCell}
++              monitoredLocation={monitoredLocation}
++              forecastHour={forecastHour}
++            />
+           ) : activeNav === "reports" ? (
+-            <ReportsAnalyticsView 
++            <ReportsAnalyticsView
+               onTriggerAlert={handleSendAlert}
+               onTriggerSitrep={() => setShowNdrfModal(true)}
+               locationName={locationName}
+@@ -337,9 +470,13 @@ export default function App() {
+           ) : (
+             <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center text-ink-dim p-10">
+               <div className="text-6xl mb-4">🚧</div>
+-              <h2 className="text-2xl font-bold text-ink mb-2">Module under construction</h2>
++              <h2 className="text-2xl font-bold text-ink mb-2">
++                Module under construction
++              </h2>
+               <p className="text-center max-w-md">
+-                The <strong>{activeNav.replace('-', ' ')}</strong> module will be fully integrated with existing NDRF &amp; State Command Center APIs post-hackathon.
++                The <strong>{activeNav.replace("-", " ")}</strong> module will
++                be fully integrated with existing NDRF &amp; State Command
++                Center APIs post-hackathon.
+               </p>
+             </div>
+           )}
+@@ -349,47 +486,83 @@ export default function App() {
+       {/* HACKATHON: SMS DISPATCH SIMULATOR MODAL */}
+       <AnimatePresence>
+         {showSmsModal && (
+-          <motion.div 
+-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
++          <motion.div
++            initial={{ opacity: 0 }}
++            animate={{ opacity: 1 }}
++            exit={{ opacity: 0 }}
+             className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center backdrop-blur-sm p-4"
+           >
+-            <motion.div 
+-              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
++            <motion.div
++              initial={{ scale: 0.9, y: 20 }}
++              animate={{ scale: 1, y: 0 }}
+               className="bg-[#0d1321] border border-blue-500/60 rounded-2xl w-full max-w-xl p-6 shadow-[0_10px_40px_rgba(59,130,246,0.3)] space-y-3"
+             >
+               <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                 <h2 className="text-blue-400 text-lg font-extrabold flex items-center gap-2">
+-                  <Bell size={20} className="animate-bounce" /> MULTI-CHANNEL EMERGENCY DISPATCH
++                  <Bell size={20} className="animate-bounce" /> MULTI-CHANNEL
++                  EMERGENCY DISPATCH
+                 </h2>
+-                <button onClick={() => setShowSmsModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
++                <button
++                  onClick={() => setShowSmsModal(false)}
++                  className="text-slate-400 hover:text-white text-lg font-bold"
++                >
++                  ✕
++                </button>
+               </div>
+ 
+               {/* Channel 1 */}
+               <div className="bg-white/5 p-3 rounded-lg border-l-4 border-blue-500">
+                 <p className="text-xs text-slate-300 font-bold mb-1 flex items-center gap-1.5">
+-                  <span className="w-2 h-2 rounded-full bg-blue-400"></span> Channel 1: Citizens 5km Radius (SMS &amp; WhatsApp)
++                  <span className="w-2 h-2 rounded-full bg-blue-400"></span>{" "}
++                  Channel 1: Citizens 5km Radius (SMS &amp; WhatsApp)
++                </p>
++                <p className="text-xs text-slate-200 font-medium">
++                  ⚠️ चेतावनी: अगले 2 घंटे में भारी बारिश और बाढ़ की संभावना है।
++                  कृपया सुरक्षित स्थानों पर चले जाएं। (NDMA)
+                 </p>
+-                <p className="text-xs text-slate-200 font-medium">⚠️ चेतावनी: अगले 2 घंटे में भारी बारिश और बाढ़ की संभावना है। कृपया सुरक्षित स्थानों पर चले जाएं। (NDMA)</p>
+               </div>
+ 
+               {/* Channel 2 */}
+               <div className="bg-white/5 p-3 rounded-lg border-l-4 border-red-500">
+                 <p className="text-xs text-slate-300 font-bold mb-1 flex items-center gap-1.5">
+-                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span> Channel 2: DM Office, SDM, First Responders (API Push)
++                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>{" "}
++                  Channel 2: DM Office, SDM, First Responders (API Push)
++                </p>
++                <p className="text-xs text-slate-200 font-medium">
++                  🚨 EXTREME RISK ALERT: Flash flood probability{" "}
++                  {maxRisks.flash_flood > 0
++                    ? (maxRisks.flash_flood * 100).toFixed(0)
++                    : 92}
++                  % near{" "}
++                  {selectedCell
++                    ? `${selectedCell.lat.toFixed(2)}, ${selectedCell.lon.toFixed(2)}`
++                    : "Rudraprayag"}
++                  . Initiate immediate evacuation protocol.
+                 </p>
+-                <p className="text-xs text-slate-200 font-medium">🚨 EXTREME RISK ALERT: Flash flood probability {maxRisks.flash_flood > 0 ? (maxRisks.flash_flood*100).toFixed(0) : 92}% near {selectedCell ? `${selectedCell.lat.toFixed(2)}, ${selectedCell.lon.toFixed(2)}` : 'Rudraprayag'}. Initiate immediate evacuation protocol.</p>
+               </div>
+ 
+               {/* Channel 3: Offline P2P Mesh Relay */}
+               <div className="bg-white/5 p-3 rounded-lg border-l-4 border-emerald-500">
+                 <div className="flex items-center justify-between mb-1">
+                   <p className="text-xs text-slate-300 font-bold flex items-center gap-1.5">
+-                    <Radio size={13} className="text-emerald-400 animate-pulse" /> Channel 3: Offline P2P Mesh Relay (Zero Cell Signal / Tower Collapse)
++                    <Radio
++                      size={13}
++                      className="text-emerald-400 animate-pulse"
++                    />{" "}
++                    Channel 3: Offline P2P Mesh Relay (Zero Cell Signal / Tower
++                    Collapse)
+                   </p>
+-                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">14 HOPS ACTIVE</span>
++                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">
++                    14 HOPS ACTIVE
++                  </span>
+                 </div>
+                 <p className="text-xs text-slate-300 font-medium leading-relaxed">
+-                  📡 Bluetooth Low Energy (BLE) multi-hop packet broadcasted phone-to-phone across isolated valley habitations with <strong>zero cellular or internet connectivity required</strong>.
++                  📡 Bluetooth Low Energy (BLE) multi-hop packet broadcasted
++                  phone-to-phone across isolated valley habitations with{" "}
++                  <strong>
++                    zero cellular or internet connectivity required
++                  </strong>
++                  .
+                 </p>
+               </div>
+ 
+@@ -397,17 +570,30 @@ export default function App() {
+               <div className="bg-white/5 p-3 rounded-lg border-l-4 border-purple-500">
+                 <div className="flex items-center justify-between mb-1">
+                   <p className="text-xs text-slate-300 font-bold flex items-center gap-1.5">
+-                    <Cpu size={13} className="text-purple-400 animate-pulse" /> Channel 4: M2M Autonomous Infrastructure Interlocks (SCADA / IoT Relay)
++                    <Cpu size={13} className="text-purple-400 animate-pulse" />{" "}
++                    Channel 4: M2M Autonomous Infrastructure Interlocks (SCADA /
++                    IoT Relay)
+                   </p>
+-                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">4 SYSTEMS ARMED</span>
++                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">
++                    4 SYSTEMS ARMED
++                  </span>
+                 </div>
+                 <p className="text-xs text-slate-300 font-medium leading-relaxed">
+-                  ⚙️ Machine-to-machine actuation signals dispatched: <strong>Dam Sluice Gates</strong> (IEC-60870 pre-drawdown), <strong>Indian Railways</strong> (Kavach speed cap 30km/h), and <strong>Highway VMS / Barrier Dropped</strong> with 60s Human-in-the-Loop abort window.
++                  ⚙️ Machine-to-machine actuation signals dispatched:{" "}
++                  <strong>Dam Sluice Gates</strong> (IEC-60870 pre-drawdown),{" "}
++                  <strong>Indian Railways</strong> (Kavach speed cap 30km/h),
++                  and <strong>Highway VMS / Barrier Dropped</strong> with 60s
++                  Human-in-the-Loop abort window.
+                 </p>
+                 <div className="mt-1.5 flex items-center justify-between text-[10px] text-purple-300/90 pt-1 border-t border-purple-500/20">
+-                  <span className="font-mono text-[9.5px]">Standard: IEC 60870-5-104 &amp; MQTT Protocol</span>
+-                  <button 
+-                    onClick={() => { setShowSmsModal(false); setActiveNav("infrastructure"); }}
++                  <span className="font-mono text-[9.5px]">
++                    Standard: IEC 60870-5-104 &amp; MQTT Protocol
++                  </span>
++                  <button
++                    onClick={() => {
++                      setShowSmsModal(false);
++                      setActiveNav("infrastructure");
++                    }}
+                     className="underline text-purple-300 hover:text-white font-bold"
+                   >
+                     Open SCADA Interlock Center ➔
+@@ -418,10 +604,15 @@ export default function App() {
+               <div className="pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                 <div className="flex items-center gap-2">
+                   <div className="inline-block w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin shrink-0" />
+-                  <p className="text-[11px] text-emerald-400 font-mono">Routing via NIC SMS Gateway &amp; BLE Mesh Nodes...</p>
++                  <p className="text-[11px] text-emerald-400 font-mono">
++                    Routing via NIC SMS Gateway &amp; BLE Mesh Nodes...
++                  </p>
+                 </div>
+-                <button 
+-                  onClick={() => { setShowSmsModal(false); setShowNdrfModal(true); }}
++                <button
++                  onClick={() => {
++                    setShowSmsModal(false);
++                    setShowNdrfModal(true);
++                  }}
+                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1.5 shrink-0"
+                 >
+                   <FileText size={13} /> View Official NDRF SITREP ➔
+@@ -435,16 +626,21 @@ export default function App() {
+       {/* HACKATHON: NDRF SITREP MODAL */}
+       <AnimatePresence>
+         {showNdrfModal && (
+-          <motion.div 
+-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+-            onClick={(e) => { if (e.target === e.currentTarget) setShowNdrfModal(false); }}
++          <motion.div
++            initial={{ opacity: 0 }}
++            animate={{ opacity: 1 }}
++            exit={{ opacity: 0 }}
++            onClick={(e) => {
++              if (e.target === e.currentTarget) setShowNdrfModal(false);
++            }}
+             className="fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center backdrop-blur-sm p-4"
+           >
+-            <motion.div 
+-              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
++            <motion.div
++              initial={{ scale: 0.9, y: 20 }}
++              animate={{ scale: 1, y: 0 }}
+               className="bg-white text-black rounded-2xl w-full max-w-2xl p-6 sm:p-8 shadow-2xl font-serif max-h-[92vh] overflow-y-auto relative"
+             >
+-              <button 
++              <button
+                 onClick={() => setShowNdrfModal(false)}
+                 className="absolute top-4 right-4 text-gray-500 hover:text-black w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-base font-bold transition-colors"
+                 title="Close SITREP"
+@@ -453,50 +649,109 @@ export default function App() {
+               </button>
+ 
+               <div className="border-b-2 border-black pb-4 mb-6 text-center pr-6">
+-                <h1 className="text-xl sm:text-2xl font-black uppercase tracking-widest mb-1 text-gray-900">GOVERNMENT OF INDIA</h1>
+-                <h2 className="text-sm sm:text-base font-bold text-gray-800">NATIONAL DISASTER RESPONSE FORCE (NDRF)</h2>
+-                <h3 className="text-xs sm:text-sm font-semibold text-gray-600 mt-1">AUTOMATED SITUATIONAL REPORT (SITREP)</h3>
++                <h1 className="text-xl sm:text-2xl font-black uppercase tracking-widest mb-1 text-gray-900">
++                  GOVERNMENT OF INDIA
++                </h1>
++                <h2 className="text-sm sm:text-base font-bold text-gray-800">
++                  NATIONAL DISASTER RESPONSE FORCE (NDRF)
++                </h2>
++                <h3 className="text-xs sm:text-sm font-semibold text-gray-600 mt-1">
++                  AUTOMATED SITUATIONAL REPORT (SITREP)
++                </h3>
+               </div>
+-              
++
+               <div className="text-sm leading-relaxed">
+                 <div className="grid grid-cols-2 gap-5 mb-6">
+                   <div>
+-                    <p><strong>REPORT ID:</strong> DG-AI-{Math.floor(Math.random()*10000)}</p>
+-                    <p><strong>DATE/TIME:</strong> {new Date().toLocaleString()}</p>
+-                    <p><strong>ISSUING AUTH:</strong> DisasterGuard AI Sys</p>
++                    <p>
++                      <strong>REPORT ID:</strong> DG-AI-
++                      {Math.floor(Math.random() * 10000)}
++                    </p>
++                    <p>
++                      <strong>DATE/TIME:</strong> {new Date().toLocaleString()}
++                    </p>
++                    <p>
++                      <strong>ISSUING AUTH:</strong> DisasterGuard AI Sys
++                    </p>
+                   </div>
+                   <div>
+-                    <p><strong>HAZARD TYPE:</strong> {activeLayer.replace('_', ' ').toUpperCase()}</p>
+-                    <p><strong>SEVERITY:</strong> CRITICAL (L3)</p>
+-                    <p><strong>COORDINATES:</strong> {selectedCell ? `${selectedCell.lat.toFixed(4)} N, ${selectedCell.lon.toFixed(4)} E` : '30.2800 N, 78.9800 E'}</p>
++                    <p>
++                      <strong>HAZARD TYPE:</strong>{" "}
++                      {activeLayer.replace("_", " ").toUpperCase()}
++                    </p>
++                    <p>
++                      <strong>SEVERITY:</strong> CRITICAL (L3)
++                    </p>
++                    <p>
++                      <strong>COORDINATES:</strong>{" "}
++                      {selectedCell
++                        ? `${selectedCell.lat.toFixed(4)} N, ${selectedCell.lon.toFixed(4)} E`
++                        : "30.2800 N, 78.9800 E"}
++                    </p>
+                   </div>
+                 </div>
+ 
+                 <div className="border border-gray-300 p-4 mb-6 bg-gray-50">
+-                  <h4 className="font-extrabold mb-2">1. EXPOSURE & IMPACT ESTIMATE</h4>
++                  <h4 className="font-extrabold mb-2">
++                    1. EXPOSURE & IMPACT ESTIMATE
++                  </h4>
+                   <ul className="pl-5 list-disc">
+-                    <li><strong>Est. Population at Risk:</strong> {selectedCell ? '18,420' : 'Approx 20,000'}</li>
+-                    <li><strong>Vulnerable Infrastructure:</strong> 14 Schools, 2 Hospitals, 3 Bridges</li>
+-                    <li><strong>Evacuation Window:</strong> {forecastHour} Hours</li>
++                    <li>
++                      <strong>Est. Population at Risk:</strong>{" "}
++                      {selectedCell ? "18,420" : "Approx 20,000"}
++                    </li>
++                    <li>
++                      <strong>Vulnerable Infrastructure:</strong> 14 Schools, 2
++                      Hospitals, 3 Bridges
++                    </li>
++                    <li>
++                      <strong>Evacuation Window:</strong> {forecastHour} Hours
++                    </li>
+                   </ul>
+                 </div>
+ 
+                 <div className="border border-gray-300 p-4 mb-6">
+-                  <h4 className="font-extrabold mb-2">2. AI PREDICTIVE PRECURSORS</h4>
+-                  <p>The AI model (Confidence: {(maxRisks[activeLayer]*100 || 86).toFixed(1)}%) triggered this alert based on the following meteorological anomalies:</p>
++                  <h4 className="font-extrabold mb-2">
++                    2. AI PREDICTIVE PRECURSORS
++                  </h4>
++                  <p>
++                    The AI model (Confidence:{" "}
++                    {(maxRisks[activeLayer] * 100 || 86).toFixed(1)}%) triggered
++                    this alert based on the following meteorological anomalies:
++                  </p>
+                   <ul className="pl-5 list-disc mt-2">
+-                    <li>Extreme Convective Available Potential Energy (CAPE) detected.</li>
+-                    <li>Integrated Water Vapor (IWV) rate exceeding historical 99th percentile.</li>
+-                    <li>Rapid cloud-top cooling observed in INSAT-3D infrared channels.</li>
++                    <li>
++                      Extreme Convective Available Potential Energy (CAPE)
++                      detected.
++                    </li>
++                    <li>
++                      Integrated Water Vapor (IWV) rate exceeding historical
++                      99th percentile.
++                    </li>
++                    <li>
++                      Rapid cloud-top cooling observed in INSAT-3D infrared
++                      channels.
++                    </li>
+                   </ul>
+                 </div>
+ 
+-                <p className="italic text-xs text-center text-gray-600">This report was automatically generated by DisasterGuard AI Early Warning System. Immediate action is recommended as per Standard Operating Procedure (SOP) Annexure 4.</p>
++                <p className="italic text-xs text-center text-gray-600">
++                  This report was automatically generated by DisasterGuard AI
++                  Early Warning System. Immediate action is recommended as per
++                  Standard Operating Procedure (SOP) Annexure 4.
++                </p>
+               </div>
+ 
+               <div className="mt-8 flex justify-end gap-4">
+-                <button onClick={() => setShowNdrfModal(false)} className="px-5 py-2.5 bg-gray-200 text-black rounded font-semibold">Close</button>
+-                <button className="px-5 py-2.5 bg-blue-600 text-white rounded font-semibold">Print Report</button>
++                <button
++                  onClick={() => setShowNdrfModal(false)}
++                  className="px-5 py-2.5 bg-gray-200 text-black rounded font-semibold"
++                >
++                  Close
++                </button>
++                <button className="px-5 py-2.5 bg-blue-600 text-white rounded font-semibold">
++                  Print Report
++                </button>
+               </div>
+             </motion.div>
+           </motion.div>
+diff --git a/frontend/src/components/dashboard/SatellitePanel.tsx b/frontend/src/components/dashboard/SatellitePanel.tsx
+index 7b4a495..7da8e47 100644
+--- a/frontend/src/components/dashboard/SatellitePanel.tsx
++++ b/frontend/src/components/dashboard/SatellitePanel.tsx
+@@ -1,28 +1,68 @@
++import { useEffect, useState } from "react";
+ import { Satellite, CircleDot, RefreshCw } from "lucide-react";
+ import { Card, CardHeader, CardBody } from "@/components/ui/card";
+ 
+ interface SatelliteStatus {
+   status?: string;
+   source?: string;
++  pipeline?: string;
+   connection_status?: string;
+   ingested?: boolean;
+   model_weights_loaded?: boolean;
+   last_tensor?: { max?: number; min?: number; shape?: number[] } | null;
++  poll_minutes?: number;
++  last_update_utc?: string | null;
++  inference_last_run_utc?: string | null;
+ }
+ 
+ interface SatellitePanelProps {
+   status?: SatelliteStatus | null;
++  monitoredLocation?: { lat: number; lon: number } | null;
+   loading?: boolean;
+   onRefresh?: () => void;
++  onOpenDashboard?: () => void;
+ }
+ 
+-export function SatellitePanel({ status, loading = false, onRefresh }: SatellitePanelProps) {
++export function SatellitePanel({
++  status,
++  monitoredLocation,
++  loading = false,
++  onRefresh,
++  onOpenDashboard,
++}: SatellitePanelProps) {
+   const connected = status?.ingested === true;
++  const [now, setNow] = useState(() => Date.now());
++
++  useEffect(() => {
++    const timer = window.setInterval(() => setNow(Date.now()), 1000);
++    return () => window.clearInterval(timer);
++  }, []);
++
++  const pollMinutes = status?.poll_minutes ?? 180;
++  const pollMilliseconds = pollMinutes * 60 * 1000;
++  const lastUpdate = status?.last_update_utc
++    ? new Date(status.last_update_utc).getTime()
++    : null;
++  const remainingSeconds = lastUpdate
++    ? Math.max(0, Math.ceil((lastUpdate + pollMilliseconds - now) / 1000))
++    : null;
++  const lastUpdateLabel = status?.last_update_utc
++    ? new Date(status.last_update_utc).toLocaleTimeString()
++    : "pending";
++  const countdownLabel =
++    remainingSeconds === null
++      ? "waiting"
++      : `${Math.floor(remainingSeconds / 60)}m ${String(remainingSeconds % 60).padStart(2, "0")}s`;
++
+   return (
+     <Card className="flex flex-col">
+       <CardHeader
+         icon={Satellite}
+-        title="Satellite INSAT-3D"
++        title={
++          status?.source?.startsWith("eumetsat")
++            ? "Satellite Meteosat-9"
++            : "Satellite INSAT-3D"
++        }
+         right={
+           <button
+             type="button"
+@@ -36,21 +76,47 @@ export function SatellitePanel({ status, loading = false, onRefresh }: Satellite
+         }
+       />
+       <CardBody className="flex-1 flex flex-col">
+-        <div
+-          className="flex-1 min-h-[140px] rounded-lg mb-2 relative overflow-hidden"
++        <button
++          type="button"
++          onClick={onOpenDashboard}
++          title="Open India state-wise satellite risk dashboard"
++          className="flex-1 min-h-[140px] rounded-lg mb-2 relative overflow-hidden text-left cursor-pointer ring-offset-2 ring-offset-panel focus:outline-none focus:ring-2 focus:ring-blue-400"
+           style={{
+-            background:
+-              "radial-gradient(circle at 50% 45%, #fff 0%, #60a5fa 15%, #1d4ed8 35%, #f59e0b 60%, #7c2d12 85%)",
++            backgroundImage: status?.last_update_utc
++              ? `url(http://127.0.0.1:8000/api/satellite/image?center_lat=${monitoredLocation?.lat ?? 30.73}&center_lon=${monitoredLocation?.lon ?? 79.06}&crop=true&updated=${encodeURIComponent(status.last_update_utc)})`
++              : "radial-gradient(circle at 50% 45%, #fff 0%, #60a5fa 15%, #1d4ed8 35%, #f59e0b 60%, #7c2d12 85%)",
++            backgroundSize: "cover",
++            backgroundPosition: "center",
++            backgroundColor: "#1d4ed8",
+           }}
+         >
+           <span className="absolute bottom-1.5 right-1.5 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-black/60 text-risk-low">
+             <CircleDot size={9} /> {connected ? "Ingested" : "Not ingested"}
+           </span>
++          <span className="absolute left-1.5 bottom-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white/90">Open state dashboard</span>
++        </button>
++        <div className="text-[11px] text-ink-faint">
++          Channel IR 10.8 μm · Updated {lastUpdateLabel}
++        </div>
++        <div className="mt-1 text-[10px] text-ink-faint">
++          {status?.model_weights_loaded
++            ? "SevereWeatherNet: active"
++            : "SevereWeatherNet: fallback"}
++          {status?.last_tensor?.max !== undefined &&
++            ` · signal max ${status.last_tensor.max}`}
++        </div>
++        <div className="mt-1 text-[10px] text-ink-faint">
++          Update cycle: every {pollMinutes} min · Source:{" "}
++          {status?.source ?? "unavailable"}
++        </div>
++        <div className="mt-1 text-[10px] text-emerald-400">
++          Next automatic update: {countdownLabel}
+         </div>
+-        <div className="text-[11px] text-ink-faint">Channel IR 10.8 μm · 10:20 AM IST</div>
+         <div className="mt-1 text-[10px] text-ink-faint">
+-          {status?.model_weights_loaded ? "SevereWeatherNet: active" : "SevereWeatherNet: fallback"}
+-          {status?.last_tensor?.max !== undefined && ` · signal max ${status.last_tensor.max}`}
++          Last inference:{" "}
++          {status?.inference_last_run_utc
++            ? new Date(status.inference_last_run_utc).toLocaleTimeString()
++            : "pending"}
+         </div>
+       </CardBody>
+     </Card>
+diff --git a/frontend/src/components/dashboard/SatelliteStateDashboard.tsx b/frontend/src/components/dashboard/SatelliteStateDashboard.tsx
+new file mode 100644
+index 0000000..2c4eac0
+--- /dev/null
++++ b/frontend/src/components/dashboard/SatelliteStateDashboard.tsx
+@@ -0,0 +1,84 @@
++import { useEffect, useMemo, useState } from "react";
++import { ArrowLeft, MapPin, Satellite, ShieldAlert } from "lucide-react";
++
++type StateRisk = {
++  state: string; lat: number; lon: number; level: string; overall_risk: number;
++  flash_flood: number; cloudburst: number; thunderstorm: number;
++};
++
++export function SatelliteStateDashboard({
++  onBack, onSelectState, selectedLocationName, selectedState,
++}: {
++  onBack: () => void;
++  onSelectState: (state: StateRisk) => void;
++  selectedLocationName: string;
++  selectedState?: string;
++}) {
++  const [states, setStates] = useState<StateRisk[]>([]);
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    fetch("http://127.0.0.1:8000/api/state-risk-summary")
++      .then((response) => response.json())
++      .then((data) => setStates(data.states || []))
++      .catch(console.error)
++      .finally(() => setLoading(false));
++  }, []);
++
++  const topRisk = states[0];
++  const levelClass: Record<string, string> = {
++    severe: "border-red-500/50 bg-red-500/10 text-red-300",
++    high: "border-orange-400/50 bg-orange-500/10 text-orange-300",
++    moderate: "border-yellow-400/50 bg-yellow-500/10 text-yellow-200",
++    low: "border-emerald-400/40 bg-emerald-500/10 text-emerald-300",
++  };
++  const selected = useMemo(
++    () => states.find((item) => selectedState && selectedState.includes(item.state)),
++    [selectedState, states],
++  );
++
++  return (
++    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
++      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-950/50 to-panel p-4">
++        <div className="flex items-center gap-3">
++          <div className="rounded-xl bg-blue-500/15 p-3 text-blue-300"><Satellite size={24} /></div>
++          <div>
++            <h2 className="text-lg font-extrabold text-ink">India Satellite State Intelligence</h2>
++            <p className="text-xs text-ink-dim">Live Meteosat-9 model risk at a reference location in every State/UT.</p>
++          </div>
++        </div>
++        <button onClick={onBack} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-bold text-ink-dim hover:text-ink">
++          <ArrowLeft size={14} /> Back to dashboard
++        </button>
++      </div>
++
++      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
++        <div className="lg:col-span-2 rounded-xl border border-border bg-panel p-4">
++          <p className="text-[11px] uppercase tracking-wider text-ink-faint font-bold">Search-linked satellite focus</p>
++          <div className="mt-2 flex items-center gap-2 text-ink font-bold"><MapPin size={16} className="text-blue-400" /> {selectedLocationName}</div>
++          <p className="mt-2 text-xs text-ink-dim">Searching any Indian city updates the satellite crop and map. Click a State/UT card below to focus the command dashboard there.</p>
++        </div>
++        <div className="rounded-xl border border-risk-extreme/40 bg-risk-extreme/10 p-4">
++          <p className="text-[11px] uppercase tracking-wider text-red-300 font-bold">Highest current state signal</p>
++          <div className="mt-2 flex items-center gap-2 text-ink font-extrabold"><ShieldAlert size={17} className="text-red-400" /> {topRisk?.state ?? "Loading..."}</div>
++          <p className="mt-1 text-sm text-red-200">{topRisk ? `${topRisk.overall_risk}% model risk` : ""}</p>
++        </div>
++      </div>
++
++      {loading ? <div className="text-sm text-ink-dim">Loading live state risk summary…</div> : (
++        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
++          {states.map((item) => {
++            const isSelected = selected?.state === item.state;
++            return <button key={item.state} onClick={() => onSelectState(item)} className={`rounded-xl border p-4 text-left transition hover:-translate-y-0.5 hover:border-blue-400 ${levelClass[item.level] || levelClass.low} ${isSelected ? "ring-2 ring-blue-400" : ""}`}>
++              <div className="flex justify-between gap-2"><span className="font-bold text-sm">{item.state}</span><span className="text-[10px] uppercase font-black">{item.level}</span></div>
++              <div className="mt-3 text-2xl font-black">{item.overall_risk}%</div>
++              <div className="mt-2 grid grid-cols-3 gap-1 text-[9px] text-ink-dim">
++                <span>Flood<br/><b>{item.flash_flood}%</b></span><span>Cloudburst<br/><b>{item.cloudburst}%</b></span><span>Storm<br/><b>{item.thunderstorm}%</b></span>
++              </div>
++            </button>;
++          })}
++        </div>
++      )}
++    </div>
++  );
++}
+diff --git a/requirements.txt b/requirements.txt
+index f27d3dd..1fee71f 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -11,3 +11,5 @@ fastapi
+ uvicorn[standard]
+ pydantic
+ websockets
++satpy
++eumdac
+diff --git a/satellite_pipeline/live_worker.py b/satellite_pipeline/live_worker.py
+index 895b7be..19911e6 100644
+--- a/satellite_pipeline/live_worker.py
++++ b/satellite_pipeline/live_worker.py
+@@ -31,13 +31,20 @@ class LiveSatelliteWorker:
+         granule_file = self.client.fetch_granule("INSAT3DR_IMG_L2B_CTT")
+ 
+         # 2. Extract convective signals
+-        ds, meta = self.reader.read_granule(granule_file)
+-        convective_index = self.reader.derive_convective_proxies(ds, meta["variable_name"])
+-
+-        # 3. Regrid to target spatial dimensions
+-        src_lats = ds.latitude.values
+-        src_lons = ds.longitude.values
+-        regridded_convection = self.regridder.regrid_array(convective_index, src_lats, src_lons)
++        if granule_file.suffix.lower() == ".nat":
++            native_image, meta = self.reader.read_eumetsat_native(granule_file)
++            convective_index = self.reader.derive_convective_proxies(
++                {"IR_108": native_image}, "IR_108"
++            )
++            regridded_convection = convective_index
++        else:
++            ds, meta = self.reader.read_granule(granule_file)
++            convective_index = self.reader.derive_convective_proxies(ds, meta["variable_name"])
++
++            # 3. Regrid to target spatial dimensions
++            src_lats = ds.latitude.values
++            src_lons = ds.longitude.values
++            regridded_convection = self.regridder.regrid_array(convective_index, src_lats, src_lons)
+ 
+         # 4. Save PyTorch tensor
+         tensor = torch.from_numpy(regridded_convection).unsqueeze(0).unsqueeze(0) # (1, 1, 310, 310)
+diff --git a/satellite_pipeline/mosdac_client.py b/satellite_pipeline/mosdac_client.py
+index 01ceaa4..5a77af2 100644
+--- a/satellite_pipeline/mosdac_client.py
++++ b/satellite_pipeline/mosdac_client.py
+@@ -6,8 +6,10 @@ Supports: INSAT3DR_IMG_L2B_CTT (Cloud Top Temp), QPE (Rainfall), SND_L2B_WV (Wat
+ import os
+ import time
+ import logging
++import shutil
++import zipfile
+ from pathlib import Path
+-from datetime import datetime, timezone
++from datetime import datetime, timezone, timedelta
+ from typing import Optional, Dict, Any
+ 
+ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+@@ -49,7 +51,14 @@ class MOSDACClient:
+         self.cache_dir.mkdir(parents=True, exist_ok=True)
+         self.api_key = api_key or os.getenv("MOSDAC_API_KEY", "DEMO_KEY_MOSDAC")
+         self.local_input_path = os.getenv("SATELLITE_INPUT_FILE", "")
++        self.eumetsat_input_path = os.getenv("EUMETSAT_INPUT_FILE", "")
++        self.eumetsat_key = os.getenv("EUMETSAT_CONSUMER_KEY", "")
++        self.eumetsat_secret = os.getenv("EUMETSAT_CONSUMER_SECRET", "")
++        self.eumetsat_collection = os.getenv(
++            "EUMETSAT_COLLECTION", "EO:EUM:DAT:MSG:HRSEVIRI-IODC"
++        )
+         self.last_ingested_granule: Optional[Dict[str, Any]] = None
++        self.last_error: Optional[str] = None
+ 
+     def poll_latest_granule_metadata(self, dataset_id: str = "INSAT3DR_IMG_L2B_CTT") -> Dict[str, Any]:
+         """Poll MOSDAC RSS / Catalogue for latest granule metadata."""
+@@ -73,15 +82,32 @@ class MOSDACClient:
+ 
+     def fetch_granule(self, dataset_id: str = "INSAT3DR_IMG_L2B_CTT") -> Path:
+         """Download or retrieve cached granule file for the specified dataset."""
+-        local_path = Path(self.local_input_path) if self.local_input_path else None
++        local_path = None
++        local_source = None
++        if self.eumetsat_input_path:
++            local_path = Path(self.eumetsat_input_path)
++            local_source = "eumetsat"
++        elif self.local_input_path:
++            local_path = Path(self.local_input_path)
++            local_source = "local_file"
++
+         if local_path and local_path.exists():
+             meta = self.poll_latest_granule_metadata(dataset_id)
+-            meta["source"] = "local_file"
++            meta["source"] = local_source
++            meta["satellite"] = "Meteosat-9" if local_source == "eumetsat" else meta["satellite"]
++            meta["dataset_id"] = "EO:EUM:DAT:MSG:HRSEVIRI-IODC" if local_source == "eumetsat" else meta["dataset_id"]
+             meta["file_path"] = str(local_path.resolve())
+             self.last_ingested_granule = meta
+             logger.info(f"Using local satellite product: {local_path}")
+             return local_path
+ 
++        if self.eumetsat_key and self.eumetsat_secret:
++            try:
++                return self._fetch_latest_eumetsat_product()
++            except Exception as exc:
++                self.last_error = f"EUMETSAT download failed: {exc}"
++                logger.warning("%s; using demo fallback", self.last_error)
++
+         meta = self.poll_latest_granule_metadata(dataset_id)
+         file_path = self.cache_dir / f"{meta['granule_id']}.nc"
+ 
+@@ -97,6 +123,67 @@ class MOSDACClient:
+         self.last_ingested_granule = meta
+         return file_path
+ 
++    def _fetch_latest_eumetsat_product(self) -> Path:
++        """Download the newest authorized SEVIRI product if it is not cached."""
++        import eumdac
++
++        token = eumdac.AccessToken((self.eumetsat_key, self.eumetsat_secret))
++        datastore = eumdac.DataStore(token)
++        collection = datastore.get_collection(self.eumetsat_collection)
++        now = datetime.now(timezone.utc)
++        products = list(collection.search(
++            dtstart=now - timedelta(hours=6),
++            dtend=now,
++        ))
++        if not products:
++            raise RuntimeError("no SEVIRI products found in the last 6 hours")
++
++        product = max(products, key=lambda item: item.sensing_start)
++        product_id = str(product.metadata.get("id", "")) or product.sensing_start.strftime("%Y%m%dT%H%M%S")
++        safe_id = "".join(char if char.isalnum() or char in "-_" else "_" for char in product_id)
++        archive_path = self.cache_dir / f"{safe_id}.zip"
++        # Older versions saved the ZIP response with a .nat extension. Reuse
++        # it instead of downloading the same large product a second time.
++        legacy_archive_path = self.cache_dir / f"{safe_id}.nat"
++        if not archive_path.exists() and legacy_archive_path.exists() and zipfile.is_zipfile(legacy_archive_path):
++            archive_path = legacy_archive_path
++
++        if not archive_path.exists():
++            logger.info("Downloading EUMETSAT product %s", product_id)
++            with product.open() as stream, archive_path.open("wb") as output:
++                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
++                    output.write(chunk)
++
++        if not zipfile.is_zipfile(archive_path):
++            raise RuntimeError(f"EUMETSAT response is not a ZIP product: {archive_path.name}")
++
++        with zipfile.ZipFile(archive_path) as archive:
++            native_members = [
++                member for member in archive.namelist()
++                if member.lower().endswith(".nat") and not member.endswith("/")
++            ]
++            if not native_members:
++                raise RuntimeError("EUMETSAT product ZIP contains no native .nat file")
++            native_name = Path(native_members[0]).name
++            target = self.cache_dir / native_name
++            if not target.exists():
++                logger.info("Extracting SEVIRI native file %s", native_name)
++                with archive.open(native_members[0]) as source, target.open("wb") as output:
++                    shutil.copyfileobj(source, output, length=1024 * 1024)
++
++        self.last_ingested_granule = {
++            "granule_id": product_id,
++            "dataset_id": self.eumetsat_collection,
++            "timestamp": product.sensing_start.isoformat(),
++            "satellite": "Meteosat-9",
++            "sensor": "SEVIRI",
++            "source": "eumetsat_api",
++            "file_path": str(target.resolve()),
++            "size_bytes": target.stat().st_size,
++        }
++        self.last_error = None
++        return target
++
+     def _write_satellite_nc_product(self, target_path: Path, metadata: Dict[str, Any]):
+         """Write standard NetCDF4 product array matching INSAT-3DR grid structure."""
+         import numpy as np
+@@ -140,12 +227,35 @@ class MOSDACClient:
+ 
+     def get_status(self) -> Dict[str, Any]:
+         """Return current MOSDAC connection & ingestion status."""
++        eumetsat_path = Path(self.eumetsat_input_path) if self.eumetsat_input_path else None
++        local_path = Path(self.local_input_path) if self.local_input_path else None
++        if eumetsat_path and eumetsat_path.exists():
++            return {
++                "service": "EUMETSAT Data Store",
++                "satellite": "Meteosat-9",
++                "active_dataset": "EO:EUM:DAT:MSG:HRSEVIRI-IODC",
++                "status": "LOCAL_FILE",
++                "source": "eumetsat",
++                "last_granule": self.last_ingested_granule or self.poll_latest_granule_metadata(),
++                "cache_dir": str(self.cache_dir),
++            }
++        if self.eumetsat_key and self.eumetsat_secret:
++            return {
++                "service": "EUMETSAT Data Store API",
++                "satellite": "Meteosat-9",
++                "active_dataset": self.eumetsat_collection,
++                "status": "API_CONFIGURED",
++                "source": "eumetsat_api",
++                "last_granule": self.last_ingested_granule,
++                "last_error": self.last_error,
++                "cache_dir": str(self.cache_dir),
++            }
+         return {
+             "service": "ISRO MOSDAC Satellite Ingestion API",
+             "satellite": "INSAT-3DR",
+             "active_dataset": "INSAT3DR_IMG_L2B_CTT",
+-            "status": "LOCAL_FILE" if self.local_input_path and Path(self.local_input_path).exists() else "DEMO_SYNTHETIC",
+-            "source": "local_file" if self.local_input_path and Path(self.local_input_path).exists() else "synthetic_demo",
++            "status": "LOCAL_FILE" if local_path and local_path.exists() else "DEMO_SYNTHETIC",
++            "source": "local_file" if local_path and local_path.exists() else "synthetic_demo",
+             "last_granule": self.last_ingested_granule or self.poll_latest_granule_metadata(),
+             "cache_dir": str(self.cache_dir)
+         }
+diff --git a/satellite_pipeline/reader.py b/satellite_pipeline/reader.py
+index b1c42ab..a59e004 100644
+--- a/satellite_pipeline/reader.py
++++ b/satellite_pipeline/reader.py
+@@ -14,6 +14,42 @@ logger = logging.getLogger("SatelliteReader")
+ 
+ class INSATReader:
+ 
++    @staticmethod
++    def read_eumetsat_native(file_path: Path) -> Tuple[np.ndarray, Dict]:
++        """Decode a Meteosat SEVIRI native file and resample IR 10.8um to India."""
++        from satpy import Scene
++        from scipy.ndimage import zoom
++
++        file_path = Path(file_path)
++        scene = Scene(reader="seviri_l1b_native", filenames=[str(file_path)])
++        scene.load(["IR_108"])
++        channel = scene["IR_108"]
++        image = channel.compute().values.astype(np.float32)
++        lons, lats = channel.attrs["area"].get_lonlats()
++        valid = (
++            np.isfinite(lats)
++            & np.isfinite(lons)
++            & (lats >= 5.04)
++            & (lats <= 38.52)
++            & (lons >= 65.04)
++            & (lons <= 98.52)
++        )
++        if not valid.any():
++            raise ValueError("EUMETSAT native product does not cover the project India grid")
++        rows, cols = np.where(valid)
++        image = image[rows.min():rows.max() + 1, cols.min():cols.max() + 1]
++        image = zoom(image, (310 / image.shape[0], 310 / image.shape[1]), order=1)
++        image = image[:310, :310]
++        image = np.nan_to_num(image, nan=280.0, posinf=280.0, neginf=280.0).astype(np.float32)
++        metadata = {
++            "satellite": "Meteosat-9",
++            "granule_id": file_path.stem,
++            "variable_name": "IR_108",
++            "shape": image.shape,
++        }
++        logger.info("Loaded EUMETSAT SEVIRI native product %s: IR_108", file_path.name)
++        return image, metadata
++
+     @staticmethod
+     def read_granule(file_path: Path) -> Tuple[xr.Dataset, Dict]:
+         """Open INSAT NetCDF/HDF5 product and extract dataset + metadata."""
+@@ -45,7 +81,7 @@ class INSATReader:
+         Derive Convective Intensity Proxy (0.0 to 1.0) from Cloud Top Temperature (CTT).
+         280K (warm cloud/surface) -> 0.0, 200K (deep convective cloud top) -> 1.0.
+         """
+-        data = ds[var_name].values
++        data = ds[var_name] if isinstance(ds, dict) else ds[var_name].values
+         data = np.nan_to_num(data, nan=280.0)
+         convective_index = np.clip((280.0 - data) / 80.0, 0.0, 1.0)
+         return convective_index

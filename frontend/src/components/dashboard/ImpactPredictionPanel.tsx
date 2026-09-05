@@ -29,6 +29,7 @@ interface CascadingChainResponse {
   corridor: string;
   river: string;
   basin: string;
+  sequence_label?: string;
   is_mountain: boolean;
   rain_rate_mmh: number;
   river_crest_m: number;
@@ -194,7 +195,7 @@ export function ImpactPredictionPanel({
                 <span className="truncate">Domino Sequence: {chainData?.river || "River Basin"}</span>
               </span>
               <span className="text-white font-mono text-[9px] shrink-0 bg-red-950/60 px-1.5 py-0.5 rounded border border-red-500/20">
-                Cloudburst ➔ Surge ➔ Landslide
+                {chainData?.sequence_label || (chainData?.is_mountain ? "Cloudburst ➔ Surge ➔ Landslide" : "Downpour ➔ Surge ➔ Inundation")}
               </span>
             </div>
 

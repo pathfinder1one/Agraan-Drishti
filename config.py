@@ -4,6 +4,12 @@ Shared across data pipeline, model training, backend API, etc.
 """
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass
+
 # ──────────────────────────────────────────────
 # Paths
 # ──────────────────────────────────────────────
@@ -98,4 +104,8 @@ SHEAR_THRESHOLD = 15.0
 # ──────────────────────────────────────────────
 API_HOST = "0.0.0.0"
 API_PORT = 8000
-CORS_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
+CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+]

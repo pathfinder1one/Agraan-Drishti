@@ -31,13 +31,20 @@ class LiveSatelliteWorker:
         granule_file = self.client.fetch_granule("INSAT3DR_IMG_L2B_CTT")
 
         # 2. Extract convective signals
-        ds, meta = self.reader.read_granule(granule_file)
-        convective_index = self.reader.derive_convective_proxies(ds, meta["variable_name"])
+        if granule_file.suffix.lower() == ".nat":
+            native_image, meta = self.reader.read_eumetsat_native(granule_file)
+            convective_index = self.reader.derive_convective_proxies(
+                {"IR_108": native_image}, "IR_108"
+            )
+            regridded_convection = convective_index
+        else:
+            ds, meta = self.reader.read_granule(granule_file)
+            convective_index = self.reader.derive_convective_proxies(ds, meta["variable_name"])
 
-        # 3. Regrid to target spatial dimensions
-        src_lats = ds.latitude.values
-        src_lons = ds.longitude.values
-        regridded_convection = self.regridder.regrid_array(convective_index, src_lats, src_lons)
+            # 3. Regrid to target spatial dimensions
+            src_lats = ds.latitude.values
+            src_lons = ds.longitude.values
+            regridded_convection = self.regridder.regrid_array(convective_index, src_lats, src_lons)
 
         # 4. Save PyTorch tensor
         tensor = torch.from_numpy(regridded_convection).unsqueeze(0).unsqueeze(0) # (1, 1, 310, 310)
