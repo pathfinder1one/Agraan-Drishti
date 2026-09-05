@@ -31,7 +31,7 @@ export function CardHeader({ icon: Icon, title, right, className }: CardHeaderPr
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
         {Icon && <Icon size={15} className="text-ink-dim shrink-0" />}
-        <h3 className="text-[13px] font-bold text-ink whitespace-nowrap">{title}</h3>
+        <h3 className="text-[13px] font-bold text-ink truncate" title={title}>{title}</h3>
       </div>
       {right && <div className="shrink-0">{right}</div>}
     </div>

@@ -22,18 +22,25 @@ import { Card, CardHeader, CardBody } from "@/components/ui/card";
 
 interface ExposureOverviewPanelProps {
   selectedCell?: { lat: number; lon: number } | null;
+  monitoredLocation?: { lat: number; lon: number } | null;
+  locationName?: string;
   forecastHour?: number;
 }
 
-export function ExposureOverviewPanel({ selectedCell, forecastHour = 2 }: ExposureOverviewPanelProps) {
+export function ExposureOverviewPanel({ 
+  selectedCell, 
+  monitoredLocation,
+  locationName,
+  forecastHour = 2 
+}: ExposureOverviewPanelProps) {
   const [intel, setIntel] = useState<any>(null);
   const [registryData, setRegistryData] = useState<any>(null);
   const [showRegistryModal, setShowRegistryModal] = useState(false);
   const [isDispatching, setIsDispatching] = useState(false);
   const [dispatchSuccess, setDispatchSuccess] = useState(false);
 
-  const lat = selectedCell ? selectedCell.lat : 30.73;
-  const lon = selectedCell ? selectedCell.lon : 79.06;
+  const lat = selectedCell?.lat ?? monitoredLocation?.lat ?? 30.73;
+  const lon = selectedCell?.lon ?? monitoredLocation?.lon ?? 79.06;
 
   useEffect(() => {
     fetch(`http://localhost:8000/api/hazard-intelligence?lat=${lat}&lon=${lon}&forecast_hour=${forecastHour}`)
@@ -67,23 +74,24 @@ export function ExposureOverviewPanel({ selectedCell, forecastHour = 2 }: Exposu
   };
 
   const village = intel?.village || {
-    village: selectedCell ? `Ward Zone (${selectedCell.lat.toFixed(2)}°N, ${selectedCell.lon.toFixed(2)}°E)` : "Rudraprayag Valley, Kedarnath Route",
-    district: "Rudraprayag, Uttarakhand",
-    elevation_m: 2150,
-    terrain_slope_factor: 0.76,
+    village: locationName || (selectedCell ? `Micro-Zone (${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E)` : "Monitored Sector"),
+    district: locationName ? `${locationName} Sector` : "District Regional Command",
+    elevation_m: lat > 29 ? 2150 : (lat > 25 ? 240 : 14),
+    terrain_slope_factor: lat > 29 ? 0.76 : (lat > 25 ? 0.28 : 0.08),
     granularity: "Village / Ward Level (<5km)"
   };
 
+  const popEstimate = Math.round(15000 + Math.abs(lat * 720) % 25000);
   const vuln = intel?.vulnerability_index || {
-    score: 0.84,
-    rating: "CRITICAL",
-    topographic_slope: 0.76,
-    elevation_m: 2150,
-    exposed_population: 18420,
-    kaccha_dwellings: 2578,
-    bridges_at_risk: 3,
-    schools_at_risk: 6,
-    evacuation_window_hours: 1.8
+    score: 0.82,
+    rating: "HIGH",
+    topographic_slope: lat > 29 ? 0.76 : 0.22,
+    elevation_m: lat > 29 ? 2150 : 220,
+    exposed_population: popEstimate,
+    kaccha_dwellings: Math.round(popEstimate * 0.16),
+    bridges_at_risk: lat > 29 ? 3 : 2,
+    schools_at_risk: Math.max(3, Math.round(popEstimate / 3200)),
+    evacuation_window_hours: Math.max(1.2, Number((2.8 - (forecastHour * 0.2)).toFixed(1)))
   };
 
   const isCritical = vuln.rating === "CRITICAL";

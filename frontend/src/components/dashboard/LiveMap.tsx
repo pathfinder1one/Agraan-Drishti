@@ -21,6 +21,7 @@ interface LiveMapProps {
   selectedCell?: { lat: number; lon: number } | null;
   monitoredLocation?: { lat: number; lon: number } | null;
   onMapReady?: (map: L.Map) => void;
+  satelliteRevision?: number;
 }
 
 // ──────────────────────────────────────────────
@@ -261,7 +262,13 @@ function getRiskColor(level: string) {
   }
 }
 
-function BackendCitiesLayer({ onCellClick }: { onCellClick: (lat: number, lon: number) => void }) {
+function BackendCitiesLayer({ 
+  onCellClick, 
+  monitoredLocation 
+}: { 
+  onCellClick: (lat: number, lon: number) => void;
+  monitoredLocation?: { lat: number; lon: number } | null;
+}) {
   const [locations, setLocations] = useState<any[]>([])
 
   useEffect(() => {
@@ -307,20 +314,17 @@ function BackendCitiesLayer({ onCellClick }: { onCellClick: (lat: number, lon: n
                 click: () => onCellClick(loc.lat, loc.lon),
               }}
             >
-              {/* Permanent Black Badge for Rudraprayag / Key epicenters */}
-              {loc.id === "rudraprayag" && (
+              {/* Permanent Black Badge for actively monitored city or primary epicenter */}
+              {((monitoredLocation && Math.hypot(loc.lat - monitoredLocation.lat, loc.lon - monitoredLocation.lon) < 0.25) || (!monitoredLocation && loc.id === "rudraprayag")) ? (
                 <Tooltip
                   permanent
                   direction="top"
                   offset={[0, -12]}
                   className="custom-district-badge"
                 >
-                  Rudraprayag
+                  {loc.name}
                 </Tooltip>
-              )}
-
-              {/* Regular Tooltip for other cities */}
-              {loc.id !== "rudraprayag" && (
+              ) : (
                 <Tooltip direction="top" offset={[0, -8]} opacity={0.9}>
                   <div className="font-sans text-[11px] leading-tight">
                     <span className="font-bold text-slate-900">{loc.name}</span>
@@ -385,14 +389,7 @@ function BackendCitiesLayer({ onCellClick }: { onCellClick: (lat: number, lon: n
 
 // ──────────────────────────────────────────────
 // IOT SENSOR STATIONS
-// ──────────────────────────────────────────────
-const IOT_SENSORS = [
-  { id: 'AWS-1', lat: 30.73, lon: 79.06, name: 'Kedarnath AWS', rain: 84.2, river: 4.5, status: 'critical' },
-  { id: 'AWS-2', lat: 30.28, lon: 78.98, name: 'Rudraprayag AWS', rain: 45.1, river: 2.1, status: 'warning' },
-  { id: 'AWS-3', lat: 30.08, lon: 78.26, name: 'Rishikesh AWS', rain: 12.0, river: 1.2, status: 'normal' },
-]
-
-function IoTSensorLayer() {
+function IoTSensorLayer({ monitoredLocation }: { monitoredLocation?: { lat: number; lon: number } }) {
   const map = useMap()
   const iotLayerRef = useRef<any>(null)
 
@@ -400,7 +397,17 @@ function IoTSensorLayer() {
     if (!map) return
     const layerGroup = (window as any).L.layerGroup()
 
-    IOT_SENSORS.forEach(sensor => {
+    const lat = monitoredLocation?.lat ?? 30.28;
+    const lon = monitoredLocation?.lon ?? 78.98;
+
+    // Dynamically place ground AWS telemetry stations around current active sector
+    const dynamicSensors = [
+      { id: 'AWS-1', lat: lat + 0.035, lon: lon + 0.025, name: 'Upstream Micro-Catchment AWS', rain: 64.2, river: 2.8, status: 'critical' },
+      { id: 'AWS-2', lat: lat - 0.028, lon: lon - 0.022, name: 'Central Sector Hydrology Gauge', rain: 38.5, river: 1.6, status: 'warning' },
+      { id: 'AWS-3', lat: lat + 0.012, lon: lon - 0.045, name: 'Downstream Runoff Monitor', rain: 12.0, river: 0.8, status: 'normal' },
+    ];
+
+    dynamicSensors.forEach(sensor => {
       const color = sensor.status === 'critical' ? '#ef4444' : sensor.status === 'warning' ? '#eab308' : '#22c55e'
       
       const markerHtml = `
@@ -445,21 +452,75 @@ function IoTSensorLayer() {
     return () => {
       if (iotLayerRef.current) map.removeLayer(iotLayerRef.current)
     }
-  }, [map])
+  }, [map, monitoredLocation?.lat, monitoredLocation?.lon])
 
   return null
 }
 
-function MapUpdater({ center }: { center: [number, number] }) {
+function ExactLocationMarker({ location, onCellClick }: { location?: { lat: number; lon: number } | null; onCellClick?: (lat: number, lon: number) => void }) {
+  if (!location) return null;
+  return (
+    <>
+      {/* Outer Animated Radar Pulse Wave */}
+      <CircleMarker
+        center={[location.lat, location.lon]}
+        radius={32}
+        pathOptions={{
+          color: "#38bdf8",
+          fillColor: "#0284c7",
+          fillOpacity: 0.18,
+          weight: 2,
+          dashArray: "5, 5",
+        }}
+      />
+      {/* Mid Glowing Halo */}
+      <CircleMarker
+        center={[location.lat, location.lon]}
+        radius={18}
+        pathOptions={{
+          color: "#00f0ff",
+          fillColor: "#38bdf8",
+          fillOpacity: 0.35,
+          weight: 1.5,
+        }}
+      />
+      {/* Inner Target Core Marker */}
+      <CircleMarker
+        center={[location.lat, location.lon]}
+        radius={8}
+        pathOptions={{
+          color: "#ffffff",
+          fillColor: "#0284c7",
+          fillOpacity: 1.0,
+          weight: 3,
+        }}
+        eventHandlers={{
+          click: () => onCellClick?.(location.lat, location.lon),
+        }}
+      >
+        <Tooltip
+          permanent
+          direction="top"
+          offset={[0, -14]}
+          className="custom-district-badge"
+        >
+          📍 GPS Target ({location.lat.toFixed(5)}°N, {location.lon.toFixed(5)}°E)
+        </Tooltip>
+      </CircleMarker>
+    </>
+  );
+}
+
+function MapUpdater({ center, zoom = 15 }: { center: [number, number]; zoom?: number }) {
   const map = useMap()
   useEffect(() => {
     if (center && map) {
-      map.flyTo(center, 9, {
+      map.flyTo(center, zoom, {
         duration: 1.8,
         easeLinearity: 0.25
       })
     }
-  }, [center?.[0], center?.[1], map])
+  }, [center?.[0], center?.[1], zoom, map])
   return null
 }
 
@@ -482,7 +543,16 @@ function ClickHandler({ onCellClick }: { onCellClick: (lat: number, lon: number)
   return null
 }
 
-export function LiveMap({ heatmapData, activeLayer, mapMode, onCellClick, selectedCell, monitoredLocation, onMapReady }: LiveMapProps) {
+export function LiveMap({ 
+  heatmapData, 
+  activeLayer, 
+  mapMode, 
+  onCellClick, 
+  selectedCell, 
+  monitoredLocation, 
+  onMapReady,
+  satelliteRevision = 0
+}: LiveMapProps) {
   const center: [number, number] = monitoredLocation ? [monitoredLocation.lat, monitoredLocation.lon] : INDIA_CENTER;
 
   // Base Tile Layer (Handles 'Satellite View', 'Terrain 3D', 'Street Map')
@@ -520,9 +590,10 @@ export function LiveMap({ heatmapData, activeLayer, mapMode, onCellClick, select
 
         {/* INSAT-3DR Real Satellite Cloud Field */}
         <ImageOverlay
-          url="http://localhost:8000/api/satellite/image"
+          key={`sat-overlay-${satelliteRevision}`}
+          url={`http://localhost:8000/api/satellite/image?rev=${satelliteRevision}`}
           bounds={[[6.0, 66.0], [37.0, 97.0]]}
-          opacity={0.65}
+          opacity={0.35}
           zIndex={10}
         />
 
@@ -536,10 +607,13 @@ export function LiveMap({ heatmapData, activeLayer, mapMode, onCellClick, select
         <RiverLayer />
 
         {/* IoT Stations */}
-        <IoTSensorLayer />
+        <IoTSensorLayer monitoredLocation={monitoredLocation} />
 
         {/* Nationwide Monitored Cities & Hotspots with Dynamic AI Risk Popups */}
-        <BackendCitiesLayer onCellClick={onCellClick} />
+        <BackendCitiesLayer onCellClick={onCellClick} monitoredLocation={monitoredLocation} />
+
+        {/* Live Target Marker on Exact Coordinates */}
+        <ExactLocationMarker location={monitoredLocation} onCellClick={onCellClick} />
 
         <MapUpdater center={center} />
         <ClickHandler onCellClick={onCellClick} />

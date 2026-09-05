@@ -43,26 +43,22 @@ function GaugeBar({ name, signal }: { name: string, signal: any }) {
 
 interface XAIPanelProps {
   data: any;
-  selectedCell: { lat: number, lon: number } | null;
+  selectedCell?: { lat: number, lon: number } | null;
+  monitoredLocation?: { lat: number, lon: number } | null;
+  locationName?: string;
 }
 
-export function XAIPanel({ data, selectedCell }: XAIPanelProps) {
-  if (!selectedCell) {
-    return (
-      <Card>
-        <CardHeader icon={Search} title="Explainability (XAI)" />
-        <div className="p-4 text-[13px] text-ink-dim leading-relaxed">
-          Click any point on the map to see why it was flagged — meteorological drivers, confidence, and risk explanation.
-        </div>
-      </Card>
-    )
-  }
+export function XAIPanel({ data, selectedCell, monitoredLocation, locationName }: XAIPanelProps) {
+  const activeLoc = selectedCell || monitoredLocation || { lat: 30.73, lon: 79.06 };
+  const locTitle = selectedCell 
+    ? `${selectedCell.lat.toFixed(2)}°N, ${selectedCell.lon.toFixed(2)}°E` 
+    : (locationName || `${activeLoc.lat.toFixed(2)}°N, ${activeLoc.lon.toFixed(2)}°E`);
 
   return (
     <Card>
       <CardHeader 
         icon={Search} 
-        title={`Why This Risk? (${selectedCell.lat.toFixed(1)}°N, ${selectedCell.lon.toFixed(1)}°E)`} 
+        title={`Why This Risk? (${locTitle})`} 
       />
       <div className="p-4">
         {/* Signal gauges */}

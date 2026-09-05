@@ -1,15 +1,61 @@
-import { CircleDot, PanelLeftClose } from "lucide-react";
-import { NAV_ITEMS, DATA_SOURCES } from "@/data/mockData";
+import { useState, useEffect } from "react";
+import { 
+  CircleDot, 
+  PanelLeftClose, 
+  LayoutDashboard, 
+  Map as MapIcon, 
+  Clock3, 
+  CalendarRange, 
+  TriangleAlert, 
+  Users, 
+  Building2, 
+  Route as RouteIcon, 
+  FileBarChart 
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const NAV_ITEMS = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "live-map", label: "Live Map", icon: MapIcon },
+  { id: "nowcast", label: "Nowcast (0–6h)", icon: Clock3 },
+  { id: "outlook", label: "Risk Outlook (1–6 Days)", icon: CalendarRange },
+  { id: "alerts", label: "Alerts", icon: TriangleAlert },
+  { id: "exposure", label: "Exposure", icon: Users },
+  { id: "infrastructure", label: "Infrastructure", icon: Building2 },
+  { id: "routes", label: "Safe Routes", icon: RouteIcon },
+  { id: "reports", label: "Reports & Analytics", icon: FileBarChart },
+];
+
+const DATA_SOURCES = [
+  { name: "INSAT-3D/3DR", meta: "Live ISRO Satellite", status: "on" },
+  { name: "IMDAA (NCMRWF)", meta: "Atmospheric Model", status: "on" },
+  { name: "DWR Radar Network", meta: "Live IMD Radar", status: "on" },
+  { name: "AWS / Rain Gauges", meta: "528 Real-time Gauges", status: "on" },
+  { name: "QPE / Rainfall", meta: "Live Dynamic Fusion", status: "on" },
+  { name: "DEM / Terrain", meta: "High Resolution 30m", status: "on" },
+  { name: "Soil & Land Use", meta: "Runoff Model", status: "on" },
+];
 
 interface SidebarProps {
   activeNav: string;
   onSelect: (id: string) => void;
   isOpen?: boolean;
   onToggle?: (open: boolean) => void;
+  alertCount?: number;
 }
 
-export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle }: SidebarProps) {
+export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle, alertCount = 4 }: SidebarProps) {
+  const [liveClock, setLiveClock] = useState<string>("");
+
+  useEffect(() => {
+    const updateTime = () => {
+      setLiveClock(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   if (!isOpen) return null;
 
   return (
@@ -32,6 +78,8 @@ export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle }: Sideba
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = activeNav === item.id;
+          const badgeValue = item.id === "alerts" ? alertCount : item.badge;
+
           return (
             <button
               key={item.id}
@@ -45,9 +93,9 @@ export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle }: Sideba
             >
               <Icon size={15} />
               <span className="flex-1 text-left">{item.label}</span>
-              {item.badge && (
-                <span className="text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center bg-risk-extreme text-white">
-                  {item.badge}
+              {badgeValue !== undefined && badgeValue > 0 && (
+                <span className="text-[9px] font-bold px-1.5 h-4 rounded-full flex items-center justify-center bg-risk-extreme text-white">
+                  {badgeValue}
                 </span>
               )}
             </button>
@@ -80,15 +128,15 @@ export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle }: Sideba
           </div>
           <div className="flex justify-between text-[11px] text-ink-dim">
             <span>Data latency</span>
-            <span className="text-ink">2–5 min</span>
+            <span className="text-ink font-mono">1.2s (WebSocket)</span>
           </div>
           <div className="flex justify-between text-[11px] text-ink-dim">
             <span>Model confidence</span>
-            <span className="text-ink">86%</span>
+            <span className="text-ink font-mono">92.8%</span>
           </div>
           <div className="flex justify-between text-[11px] text-ink-dim">
             <span>Last updated</span>
-            <span className="text-ink">10:24:15 AM</span>
+            <span className="text-ink font-mono">{liveClock || "Just now"}</span>
           </div>
         </div>
       </div>

@@ -39,40 +39,47 @@ export function ReportsAnalyticsView({
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const highestRisk = Math.max(...Object.values(maxRisks || { flash_flood: 0 }));
+  const now = new Date();
+  const dateTag = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const nowStr = `${now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} IST`;
+  
+  const topHazard = Object.entries(maxRisks || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || 'flash_flood';
+  const hazardLabel = topHazard.replace('_', ' ').toUpperCase();
+  const severityLabel = highestRisk > 0.75 ? "RED ALERT" : highestRisk > 0.50 ? "ORANGE ALERT" : highestRisk > 0.25 ? "YELLOW ADVISORY" : "GREEN NOMINAL";
 
   const sitrepRecords = [
     {
-      id: "SITREP-2026-0826-UK01",
-      location: locationName || "Rudraprayag Sector, Mandakini Basin",
+      id: `SITREP-${dateTag}-${(selectedCell?.lat || 30.2).toFixed(1).replace('.', '')}A`,
+      location: locationName ? `${locationName} Sector` : "Active Monitored Sector",
+      hazard: `${hazardLabel} & Hydro-Surge`,
+      severity: severityLabel,
+      time: `${nowStr} (Active)`,
+      populationExposed: Math.round(14000 + highestRisk * 48000),
+      status: highestRisk > 0.60 ? "TRANSMITTED TO SDMA & NDRF" : "CIRCULATED TO DEOC",
+      source: "Automated ConvLSTM Fusion",
+      channelsDispatched: highestRisk > 0.60 ? 4 : 2
+    },
+    {
+      id: `SITREP-${dateTag}-UK02`,
+      location: "Rudraprayag Sector, Mandakini Basin",
       hazard: "Cloudburst & Flash Flood Hydro-Surge",
       severity: "RED ALERT",
-      time: "26 Aug 2026 · 10:24 AM IST",
+      time: "2 hours ago",
       populationExposed: 18420,
       status: "TRANSMITTED TO SDMA & NDRF",
       source: "Automated ConvLSTM Fusion",
       channelsDispatched: 4
     },
     {
-      id: "SITREP-2026-0826-DL04",
+      id: `SITREP-${dateTag}-DL04`,
       location: "Delhi-NCR Yamuna Floodplain Sector",
       hazard: "Urban Inundation & Drainage Surcharge",
       severity: "ORANGE ALERT",
-      time: "26 Aug 2026 · 08:45 AM IST",
+      time: "4 hours ago",
       populationExposed: 42100,
       status: "CIRCULATED TO DDMA",
       source: "Radar Nowcast + Sensor Mesh",
       channelsDispatched: 3
-    },
-    {
-      id: "SITREP-2026-0825-KL09",
-      location: "Wayanad Western Ghats Slope Sector",
-      hazard: "Toe Erosion & Landslide Susceptibility",
-      severity: "YELLOW ADVISORY",
-      time: "25 Aug 2026 · 06:15 PM IST",
-      populationExposed: 8350,
-      status: "ARCHIVED / NOMINAL",
-      source: "DEM Gradient Soil Saturation",
-      channelsDispatched: 2
     }
   ];
 
@@ -80,6 +87,44 @@ export function ReportsAnalyticsView({
     navigator.clipboard?.writeText(id);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleDownloadSitrep = (record: any) => {
+    const doc = `======================================================================
+NATIONAL DISASTER MANAGEMENT AUTHORITY (NDMA) / NDRF SITREP
+DISASTERGUARD AI - AUTOMATED SITUATION ASSESSMENT REPORT
+======================================================================
+REPORT IDENTIFIER  : ${record.id}
+DATE & TIMESTAMP   : ${record.time}
+MONITORED REGION   : ${record.location}
+ALERT LEVEL        : ${record.severity}
+HAZARD FORMATION   : ${record.hazard}
+ESTIMATED POPULATION EXPOSED : ${record.populationExposed.toLocaleString()}
+DISPATCH CHANNELS  : ${record.channelsDispatched} Actuated Channels
+======================================================================
+1. PHYSICAL ATMOSPHERIC DRIVERS:
+- Satellite Analysis  : INSAT-3DR Convective Infrared Core Detected
+- Peak Radar Echoes   : Convective Rainfall Band in Upper Catchment
+- Saturated Runoff    : Immediate Soil Runoff Influx
+
+2. FIRST RESPONDER ACTIONS:
+- Dispatch local ASHA / Anganwadi caretakers for disabled registry
+- Enforce emergency detours along safe ridgeline corridors
+- Issue cell-broadcast multilingual voice alerts across sector
+
+3. INDUSTRIAL & INFRASTRUCTURE INTERLOCKS:
+- Dam spillway pre-discharge protocol: IEC 60870-5-104
+- Automated train caution orders capped to 30 km/h (Kavach-API)
+======================================================================
+AUTHORITY: DisasterGuard AI Pre-Impact Defense System
+======================================================================`;
+    const blob = new Blob([doc], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${record.id}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -248,12 +293,21 @@ export function ReportsAnalyticsView({
                       {r.status}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={onTriggerSitrep}
-                        className="px-2.5 py-1 rounded bg-panel-alt hover:bg-blue-600/30 border border-border hover:border-blue-500/40 text-blue-400 hover:text-white text-[11px] font-bold transition-all inline-flex items-center gap-1"
-                      >
-                        Inspect ➔
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleDownloadSitrep(r)}
+                          className="px-2 py-1 rounded bg-panel-alt hover:bg-panel border border-border text-emerald-400 hover:text-emerald-300 text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
+                          title="Download Official SITREP Text Document"
+                        >
+                          <Download size={11} /> Export
+                        </button>
+                        <button
+                          onClick={onTriggerSitrep}
+                          className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-400 hover:text-white text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          Inspect ➔
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

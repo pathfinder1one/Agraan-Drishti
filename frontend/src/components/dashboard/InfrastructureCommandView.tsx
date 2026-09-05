@@ -15,7 +15,12 @@ import {
   Code2, 
   Lock, 
   Sparkles,
-  Info
+  Info,
+  Terminal,
+  Send,
+  Wifi,
+  Play,
+  Activity
 } from "lucide-react";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 
@@ -63,9 +68,21 @@ export function InfrastructureCommandView({
   const [loading, setLoading] = useState(false);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>("hydro_sluice_gate");
   const [overrideBusy, setOverrideBusy] = useState(false);
+  const [pingingTargetId, setPingingTargetId] = useState<string | null>(null);
+  const [liveLatencies, setLiveLatencies] = useState<Record<string, number>>({});
+  const [scadaLogs, setScadaLogs] = useState<Array<{ id: string; time: string; target: string; latency: number; frame: string; hash: string }>>([
+    {
+      id: "init-1",
+      time: "04:50:12 IST",
+      target: "Regional Optical Gateway",
+      latency: 24,
+      frame: "HANDSHAKE_INIT [OPTICAL_ISOLATION: ACTIVE, STATUS: SYN_ACK_OK]",
+      hash: "SHA256:88F2A109"
+    }
+  ]);
 
-  const lat = selectedCell?.lat ?? monitoredLocation?.lat ?? 30.73;
-  const lon = selectedCell?.lon ?? monitoredLocation?.lon ?? 79.06;
+  const lat = selectedCell?.lat ?? monitoredLocation?.lat ?? 28.75;
+  const lon = selectedCell?.lon ?? monitoredLocation?.lon ?? 77.50;
 
   const fetchData = () => {
     setLoading(true);
@@ -98,6 +115,35 @@ export function InfrastructureCommandView({
       console.error(e);
     } finally {
       setOverrideBusy(false);
+    }
+  };
+
+  const handlePingTarget = async (targetId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPingingTargetId(targetId);
+    try {
+      const res = await fetch("http://localhost:8000/api/infrastructure/m2m-test-ping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_id: targetId, lat, lon })
+      });
+      const result = await res.json();
+      setLiveLatencies(prev => ({ ...prev, [targetId]: result.roundtrip_ms }));
+      setScadaLogs(prev => [
+        {
+          id: `ping-${Date.now()}`,
+          time: result.timestamp.split(" ")[1] + " IST",
+          target: result.node_location || targetId,
+          latency: result.roundtrip_ms,
+          frame: result.scada_frame,
+          hash: result.integrity_hash
+        },
+        ...prev.slice(0, 6)
+      ]);
+    } catch (err) {
+      console.error("SCADA Ping failed:", err);
+    } finally {
+      setPingingTargetId(null);
     }
   };
 
@@ -247,6 +293,24 @@ export function InfrastructureCommandView({
                   <span className="font-medium text-white truncate max-w-[140px]">{target.action}</span>
                 </div>
               </div>
+
+              <button
+                onClick={(e) => handlePingTarget(target.id, e)}
+                disabled={pingingTargetId === target.id}
+                className="w-full mt-2.5 py-1.5 px-2.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-[10.5px] font-bold text-blue-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {pingingTargetId === target.id ? (
+                  <>
+                    <RefreshCw size={11} className="animate-spin text-blue-400" />
+                    <span>Transmitting SCADA Frame...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wifi size={11} className="text-emerald-400" />
+                    <span>Ping SCADA ({liveLatencies[target.id] ?? target.latency_ms} ms)</span>
+                  </>
+                )}
+              </button>
             </div>
           );
         })}
@@ -333,6 +397,39 @@ export function InfrastructureCommandView({
           </Card>
         </div>
       )}
+
+      {/* Live SCADA Protocol Audit Terminal */}
+      <Card>
+        <CardHeader
+          icon={Terminal}
+          title="Live SCADA Protocol Audit Stream & Telemetry Terminal"
+          right={
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-mono text-emerald-400 font-bold">LIVE SCADA STREAM</span>
+            </div>
+          }
+        />
+        <CardBody className="p-4 space-y-3">
+          <div className="p-3.5 rounded-xl bg-[#050811] border border-white/10 font-mono text-xs space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+            {scadaLogs.map((log) => (
+              <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 p-2.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-slate-500 text-[10px] font-mono">{log.time}</span>
+                  <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10.5px] font-bold border border-blue-500/30">
+                    {log.target}
+                  </span>
+                  <span className="text-emerald-400 text-[11px] font-mono">{log.frame}</span>
+                </div>
+                <div className="flex items-center gap-3 text-[10.5px] text-slate-400 shrink-0">
+                  <span className="text-amber-400 font-bold font-mono">RTT: {log.latency} ms</span>
+                  <span className="text-slate-500 font-mono text-[10px]">{log.hash}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardBody>
+      </Card>
     </div>
   );
 }

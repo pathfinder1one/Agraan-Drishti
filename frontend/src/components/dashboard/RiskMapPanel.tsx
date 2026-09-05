@@ -16,9 +16,26 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
 import { Badge, LEVEL_COLOR } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { HAZARD_LAYERS, EXPOSURE_LAYERS, MAP_MARKERS } from "@/data/mockData";
 
 import { LiveMap } from "./LiveMap";
+
+const HAZARD_LAYERS = [
+  "Thunderstorm",
+  "Cloudburst",
+  "Flash Flood",
+  "Heavy Rainfall",
+  "Landslide",
+  "River Overflow",
+] as const;
+
+const EXPOSURE_LAYERS = [
+  "Population",
+  "Infrastructure",
+  "Hospitals",
+  "Schools",
+  "Roads",
+  "Bridges",
+] as const;
 
 const MAP_MODES = ["Satellite View", "Terrain 3D", "Street Map"] as const;
 
@@ -29,9 +46,18 @@ interface RiskMapPanelProps {
   monitoredLocation?: { lat: number; lon: number } | null;
   activeLayer: string;
   onLayerChange: (layer: string) => void;
+  satelliteRevision?: number;
 }
 
-export function RiskMapPanel({ heatmapData, onCellClick, selectedCell, monitoredLocation, activeLayer, onLayerChange }: RiskMapPanelProps) {
+export function RiskMapPanel({ 
+  heatmapData, 
+  onCellClick, 
+  selectedCell, 
+  monitoredLocation, 
+  activeLayer, 
+  onLayerChange,
+  satelliteRevision = 0
+}: RiskMapPanelProps) {
   const [hazardLayer, setHazardLayer] = useState<string>("Flash Flood");
   const [hazardChecks, setHazardChecks] = useState<Record<string, boolean>>({
     [activeLayer]: true,
@@ -40,7 +66,7 @@ export function RiskMapPanel({ heatmapData, onCellClick, selectedCell, monitored
     Population: true,
     Infrastructure: true,
   });
-  const [mapMode, setMapMode] = useState<(typeof MAP_MODES)[number]>("Terrain 3D");
+  const [mapMode, setMapMode] = useState<(typeof MAP_MODES)[number]>("Street Map");
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [animHour, setAnimHour] = useState<number>(0);
@@ -73,12 +99,12 @@ export function RiskMapPanel({ heatmapData, onCellClick, selectedCell, monitored
 
   const handleRecenter = () => {
     if (mapInstance && monitoredLocation) {
-      mapInstance.flyTo([monitoredLocation.lat, monitoredLocation.lon], 9, {
+      mapInstance.flyTo([monitoredLocation.lat, monitoredLocation.lon], 15, {
         duration: 1.5,
         easeLinearity: 0.25,
       });
     } else if (mapInstance) {
-      mapInstance.flyTo([30.28, 78.98], 8, {
+      mapInstance.flyTo([30.28, 78.98], 15, {
         duration: 1.5,
       });
     }
@@ -183,6 +209,7 @@ export function RiskMapPanel({ heatmapData, onCellClick, selectedCell, monitored
             selectedCell={selectedCell}
             monitoredLocation={monitoredLocation}
             onMapReady={setMapInstance}
+            satelliteRevision={satelliteRevision}
           />
 
           {/* Interactive Map Controls */}

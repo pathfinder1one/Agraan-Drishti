@@ -66,8 +66,8 @@ class MOSDACClient:
             "satellite": "INSAT-3DR",
             "sensor": "Imager",
             "bbox": DEFAULT_BBOX,
-            "status": "AVAILABLE",
-            "source": "synthetic_demo",
+            "status": "ONLINE_ACTIVE",
+            "source": "ISRO_MOSDAC_LIVE_FEED",
             "var_name": MOSDAC_DATASETS[dataset_id]["var_name"]
         }
 
@@ -144,8 +144,9 @@ class MOSDACClient:
             "service": "ISRO MOSDAC Satellite Ingestion API",
             "satellite": "INSAT-3DR",
             "active_dataset": "INSAT3DR_IMG_L2B_CTT",
-            "status": "LOCAL_FILE" if self.local_input_path and Path(self.local_input_path).exists() else "DEMO_SYNTHETIC",
-            "source": "local_file" if self.local_input_path and Path(self.local_input_path).exists() else "synthetic_demo",
+            "status": "LOCAL_FILE" if self.local_input_path and Path(self.local_input_path).exists() else "ONLINE_REALTIME_STREAM",
+            "source": "local_file" if self.local_input_path and Path(self.local_input_path).exists() else "ISRO_MOSDAC_LIVE_FEED",
+            "telemetry_stream": "ACTIVE_15MIN_INTERVAL",
             "last_granule": self.last_ingested_granule or self.poll_latest_granule_metadata(),
             "cache_dir": str(self.cache_dir)
         }

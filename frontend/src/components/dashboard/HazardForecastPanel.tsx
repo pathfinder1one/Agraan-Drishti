@@ -1,23 +1,46 @@
 import { useState, useEffect } from "react";
-import { TriangleAlert, ShieldAlert, CheckCircle2, AlertOctagon, Info, ChevronRight, User, Truck, Sprout } from "lucide-react";
+import { 
+  TriangleAlert, 
+  ShieldAlert, 
+  CheckCircle2, 
+  AlertOctagon, 
+  Info, 
+  ChevronRight, 
+  User, 
+  Truck, 
+  Sprout,
+  Waves,
+  CloudLightning,
+  CloudRain,
+  Milestone
+} from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Badge, LEVEL_COLOR, levelFromLabel } from "@/components/ui/badge";
-import { HAZARD_FORECAST } from "@/data/mockData";
+
+const HAZARD_DEFS = [
+  { key: "flash_flood", name: "Flash Flood", icon: Waves },
+  { key: "cloudburst", name: "Cloudburst", icon: CloudLightning },
+  { key: "thunderstorm", name: "Thunderstorm", icon: TriangleAlert },
+  { key: "heavy_rainfall", name: "Heavy Rainfall", icon: CloudRain },
+  { key: "landslide", name: "Landslide", icon: Milestone },
+  { key: "river_overflow", name: "River Overflow", icon: Waves },
+];
 
 interface HazardForecastPanelProps {
   maxRisks: Record<string, number>;
   selectedCell?: { lat: number; lon: number } | null;
+  monitoredLocation?: { lat: number; lon: number } | null;
   forecastHour?: number;
 }
 
-export function HazardForecastPanel({ maxRisks, selectedCell, forecastHour = 2 }: HazardForecastPanelProps) {
+export function HazardForecastPanel({ maxRisks, selectedCell, monitoredLocation, forecastHour = 2 }: HazardForecastPanelProps) {
   const [activeTab, setActiveTab] = useState<"probability" | "tiers">("probability");
   const [intelligence, setIntelligence] = useState<any>(null);
   const [activeRole, setActiveRole] = useState<"citizen" | "responder" | "farmer">("citizen");
 
-  const lat = selectedCell?.lat || 30.73;
-  const lon = selectedCell?.lon || 79.06;
+  const lat = selectedCell?.lat ?? monitoredLocation?.lat ?? 30.73;
+  const lon = selectedCell?.lon ?? monitoredLocation?.lon ?? 79.06;
 
   // Fetch Confidence-Graded Tiers & Reliability data
   useEffect(() => {
@@ -27,20 +50,29 @@ export function HazardForecastPanel({ maxRisks, selectedCell, forecastHour = 2 }
       .catch(() => {});
   }, [lat, lon, forecastHour, maxRisks]);
 
-  const dynamicForecast = HAZARD_FORECAST.map((h) => {
-    const key = h.name.toLowerCase().replace(' ', '_');
-    const riskVal = maxRisks && maxRisks[key] !== undefined ? Math.round(maxRisks[key] * 100) : 0;
+  const dynamicForecast = HAZARD_DEFS.map((h) => {
+    let riskVal = 0;
+    if (maxRisks && maxRisks[h.key] !== undefined) {
+      riskVal = Math.round(maxRisks[h.key] * 100);
+    } else if (h.key === "heavy_rainfall") {
+      riskVal = Math.round(((maxRisks?.cloudburst || 0.4) * 0.9 + (maxRisks?.flash_flood || 0.4) * 0.3) * 100);
+    } else if (h.key === "landslide") {
+      riskVal = Math.round(((maxRisks?.flash_flood || 0.3) * 0.75 + (maxRisks?.cloudburst || 0.3) * 0.35) * 100);
+    } else if (h.key === "river_overflow") {
+      riskVal = Math.round(((maxRisks?.flash_flood || 0.4) * 0.85) * 100);
+    }
+    riskVal = Math.min(99, Math.max(5, riskVal));
     
     let level = "Low";
-    if (riskVal > 85) level = "Severe";
-    else if (riskVal > 60) level = "High";
-    else if (riskVal > 30) level = "Moderate";
+    if (riskVal > 80) level = "Severe";
+    else if (riskVal > 55) level = "High";
+    else if (riskVal > 25) level = "Moderate";
 
     return {
       ...h,
       value: riskVal,
       level,
-      tier: riskVal > 85 ? "EMERGENCY" : (riskVal > 60 ? "WARNING" : (riskVal > 30 ? "WATCH" : "NORMAL"))
+      tier: riskVal > 80 ? "EMERGENCY" : (riskVal > 55 ? "WARNING" : (riskVal > 25 ? "WATCH" : "NORMAL"))
     };
   }).sort((a, b) => b.value - a.value);
 
