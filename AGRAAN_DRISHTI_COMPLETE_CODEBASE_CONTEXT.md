@@ -9,15 +9,15 @@
 1. [Executive Summary & The Paradigm Shift](#1-executive-summary--the-paradigm-shift)
 2. [End-to-End System Architecture (The 7-Layer Stack)](#2-end-to-end-system-architecture-the-7-layer-stack)
 3. [Exhaustive Codebase Audit: Every File & Module Explained](#3-exhaustive-codebase-audit-every-file--module-explained)
-   - [3.1 Backend API & Telemetry Services (ackend/api/)](#31-backend-api--telemetry-services-backendapi)
-   - [3.2 Machine Learning & Neural Backbone (ackend/model/)](#32-machine-learning--neural-backbone-backendmodel)
-   - [3.3 Multi-Hazard Domino Cascade Engine (ackend/cascade/)](#33-multi-hazard-domino-cascade-engine-backendcascade)
+   - [3.1 Backend API & Telemetry Services (backend/api/)](#31-backend-api--telemetry-services-backendapi)
+   - [3.2 Machine Learning & Neural Backbone (backend/model/)](#32-machine-learning--neural-backbone-backendmodel)
+   - [3.3 Multi-Hazard Domino Cascade Engine (backend/cascade/)](#33-multi-hazard-domino-cascade-engine-backendcascade)
    - [3.4 Satellite Data Telemetry Pipeline (satellite_pipeline/)](#34-satellite-data-telemetry-pipeline-satellite_pipeline)
    - [3.5 Atmospheric Physics & Terrain Engineering (data/)](#35-atmospheric-physics--terrain-engineering-data)
-   - [3.6 Frontend React GIS & Tactical HUD (rontend/src/)](#36-frontend-react-gis--tactical-hud-frontendsrc)
+   - [3.6 Frontend React GIS & Tactical HUD (frontend/src/)](#36-frontend-react-gis--tactical-hud-frontendsrc)
    - [3.7 Root Utilities, Precomputing & Pipeline Scripts](#37-root-utilities-precomputing--pipeline-scripts)
 4. [Atmospheric Physics, Mathematics & ML Equations](#4-atmospheric-physics-mathematics--ml-equations)
-5. [Complete REST API Specification (All 25+ Endpoints)](#5-complete-rest-api-specification-all-25-endpoints)
+5. [Complete REST API Specification (All 38+ Verified Codebase Endpoints)](#5-complete-rest-api-specification-verified-38-codebase-endpoints)
 6. [Industrial SCADA, M2M Interlocks & Autonomous Actuation](#6-industrial-scada-m2m-interlocks--autonomous-actuation)
 7. [Grassroots Human-in-the-Loop & Community Care Framework](#7-grassroots-human-in-the-loop--community-care-framework)
 8. [Real-World Case Studies & Ground Truth Proof Points](#8-real-world-case-studies--ground-truth-proof-points)
@@ -106,9 +106,9 @@ Agraan-Drishti shifts the prediction window from **post-condensation precipitati
 
 ## 3. EXHAUSTIVE CODEBASE AUDIT: EVERY FILE & MODULE EXPLAINED
 
-### 3.1 Backend API & Telemetry Services (backend/api/)
+### 3.1 Backend API & Telemetry Services (bbackend/api/)
 
-#### 1. backend/api/main.py (Core Application Gateway - 1,940 Lines)
+#### 1. bbackend/api/main.py (Core Application Gateway - 1,940 Lines)
 * **Purpose:** The central FastAPI orchestrator connecting model inference, database caches, geospatial lookups, infrastructure interlocks, and frontend HUD communication.
 * **Why It Exists:** Provides high-throughput, asynchronous REST endpoints for all 36 Indian states, real-time weather synchronization, and multi-hazard simulation.
 * **Key Functionalities & Logic:**
@@ -120,7 +120,7 @@ Agraan-Drishti shifts the prediction window from **post-condensation precipitati
   - get_vulnerable_registry(lat, lon): Locates the nearest rural/urban administrative ward and maps non-smartphone citizens (wheelchair-bound, deaf, blind, bedridden) to active ASHA caretakers.
 * **Input / Output:** Takes geographic coordinates (lat, lon), forecast lead time (0 to 6 hours), and role (citizen, authority, responder); outputs JSON schemas conforming to NDMA SACHET and CAP 1.2 standards.
 
-#### 2. backend/api/alerts_service.py (NDMA Sachet CAP 1.2 RSS Synchronizer - 196 Lines)
+#### 2. bbackend/api/alerts_service.py (NDMA Sachet CAP 1.2 RSS Synchronizer - 196 Lines)
 * **Purpose:** Ingests live national disaster alerts directly from NDMA official SACHET Common Alerting Protocol (CAP) RSS feeds.
 * **Why It Exists:** Ensures Agraan-Drishti is completely interoperable with the Government of India existing early warning clearinghouse without manual data entry.
 * **Key Methods:**
@@ -128,7 +128,7 @@ Agraan-Drishti shifts the prediction window from **post-condensation precipitati
   - _parse_cap_item(item): Extracts CAP XML tags (<cap:areaDesc>, <cap:severity>, <cap:urgency>, <cap:event>, <cap:polygon>).
   - Fallback Heuristic: If NDMA servers experience downtime or network timeouts, it seamlessly serves locally cached real alerts or generates physically grounded ML nowcasts.
 
-#### 3. backend/api/dynamic_infrastructure.py (Geospatial SCADA Interlock Resolver - 324 Lines)
+#### 3. bbackend/api/dynamic_infrastructure.py (Geospatial SCADA Interlock Resolver - 324 Lines)
 * **Purpose:** Resolves any geographic point in India to real, physical critical infrastructure (river basins, hydro dams, railway divisions, highways, and electrical substations).
 * **Why It Exists:** Prevents disaster warnings from remaining abstract percentages on a screen. Translates weather predictions into automated industrial protective actions.
 * **Key Components:**
@@ -137,18 +137,18 @@ Agraan-Drishti shifts the prediction window from **post-condensation precipitati
   - simulate_scada_actuation(target_id, lat, lon): Generates industrial telecontrol telemetry conforming to IEC 60870-5-104 (dam sluice gates), Modbus TCP (substations), and RDSO Kavach (railways).
   - Enforces the 60-Second Human-in-the-Loop (HITL) safety abort window.
 
-#### 4. backend/api/realtime_weather.py (Meteorological & Radar Stream Sync - 177 Lines)
+#### 4. bbackend/api/realtime_weather.py (Meteorological & Radar Stream Sync - 177 Lines)
 * **Purpose:** Interfaces with Open-Meteo live atmospheric APIs and RainViewer Doppler Weather Radar (DWR) composite mosaics.
 * **Why It Exists:** Supplies ground-truth observational weather (temperature, humidity, precipitation rate, surface wind) to corroborate satellite nowcasts.
 
-#### 5. backend/api/sms_db.py & backend/api/sms_provider.py (Emergency Dispatch Gateway - 258 Lines)
+#### 5. bbackend/api/sms_db.py & bbackend/api/sms_provider.py (Emergency Dispatch Gateway - 258 Lines)
 * **Purpose:** Manages citizen emergency SMS subscriptions and simulates C-DAC / NIC National Emergency Communication Service gateways for 2G feature phones.
 
 ---
 
-### 3.2 Machine Learning & Neural Backbone (backend/model/)
+### 3.2 Machine Learning & Neural Backbone (bbackend/model/)
 
-#### 1. backend/model/network.py (SevereWeatherNet Architecture - 132 Lines)
+#### 1. bbackend/model/network.py (SevereWeatherNet Architecture - 132 Lines)
 * **Purpose:** Defines the PyTorch neural network that predicts multi-hazard spatial probability maps.
 * **Architecture Breakdown:**
   - Shared Spatiotemporal Backbone: 2-layer ConvLSTM taking 6 input atmospheric channels (NUM_FEATURES = 6, HIDDEN_DIM = 64, KERNEL_SIZE = 3).
@@ -159,22 +159,22 @@ Agraan-Drishti shifts the prediction window from **post-condensation precipitati
     * flashflood_head: 66-Channel Physics Decoder. Takes 64 backbone channels + 1 cloudburst probability channel + 1 NASA SRTM DEM elevation channel (66 channels total). Fuses gravity-driven surface water runoff directly with cloudburst precipitation.
 * **Model Parameters:** Exactly 318,400 trainable weights, packed into a 1.2 MB binary checkpoint (checkpoints/best_model.pth).
 
-#### 2. backend/model/convlstm.py (Convolutional LSTM Cell & Recurrent Module - 112 Lines)
+#### 2. bbackend/model/convlstm.py (Convolutional LSTM Cell & Recurrent Module - 112 Lines)
 * **Purpose:** Implements spatio-temporal recurrent convolutions where hidden states retain both spatial topology and temporal evolution across satellite scans.
 
-#### 3. backend/model/attention.py (CBAM Spatial & Channel Modules - 78 Lines)
+#### 3. bbackend/model/attention.py (CBAM Spatial & Channel Modules - 78 Lines)
 * **Purpose:** Implements Convolutional Block Attention Modules (CBAM) to drastically suppress false alarms (slashing False Alarm Rate from ~38% to 14.2%).
 
-#### 4. backend/model/train.py (Optimization & Loss Engine - 168 Lines)
+#### 4. bbackend/model/train.py (Optimization & Loss Engine - 168 Lines)
 * **Purpose:** Orchestrates multi-task training using mixed precision (PyTorch AMP), gradient clipping, and cosine annealing learning rate schedules.
 * **Loss Function (MultiTaskLoss):**
   L_total = 0.35 * L_BCE(flash_flood) + 0.35 * L_BCE(cloudburst) + 0.30 * L_BCE(thunderstorm).
 
 ---
 
-### 3.3 Multi-Hazard Domino Cascade Engine (backend/cascade/)
+### 3.3 Multi-Hazard Domino Cascade Engine (bbackend/cascade/)
 
-#### 1. backend/cascade/engine.py (Sequential Failure Modeling - 184 Lines)
+#### 1. bbackend/cascade/engine.py (Sequential Failure Modeling - 184 Lines)
 * **Purpose:** Models the domino cascade across sequential disaster phases instead of treating extreme weather as an isolated classification task.
 * **The 6-Stage Cascade:**
   1. Stage 1 (Atmospheric Precursor Initiation): Combines CAPE, CIN, IWV convergence rate, kinematic convergence, and vertical wind shear into an initial initiation probability.
@@ -219,7 +219,7 @@ Agraan-Drishti shifts the prediction window from **post-condensation precipitati
   - compute_wind_shear(...): Calculates bulk vertical shear vector between 850 hPa and 200 hPa (|V_200 - V_850|).
 
 #### 2. data/elevation.py (Topography & Catchment Analysis - 98 Lines)
-* **Purpose:** Processes the NASA SRTM 30m Digital Elevation Model across India (backend/api/india_mask.pt).
+* **Purpose:** Processes the NASA SRTM 30m Digital Elevation Model across India (bbackend/api/india_mask.pt).
 * **Why It Exists:** Topography is static and does not change during a storm. Pre-indexing elevation and slopes allows instant calculation of runoff gravity in 0.02 milliseconds without consuming network bandwidth during disasters.
 
 #### 3. data/dataset.py (PyTorch Data Loader - 118 Lines)
@@ -312,41 +312,41 @@ L_total = 0.35 * L_BCE(flash_flood) + 0.35 * L_BCE(cloudburst) + 0.30 * L_BCE(th
 
 ## 5. COMPLETE REST API SPECIFICATION (VERIFIED 38 CODEBASE ENDPOINTS)
 
-The Agraan-Drishti backend exposes an enterprise-grade, asynchronous RESTful API engineered with **FastAPI** (`backend/api/main.py`). Every endpoint is strongly typed using Pydantic v2 schemas, documented with OpenAPI/Swagger standards at `/docs`, and optimized for sub-100ms response times.
+The Agraan-Drishti backend exposes an enterprise-grade, asynchronous RESTful API engineered with **FastAPI** (`bbackend/api/main.py`). Every endpoint is strongly typed using Pydantic v2 schemas, documented with OpenAPI/Swagger standards at `/docs`, and optimized for sub-100ms response times.
 
-Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, including HTTP verb, source line numbers in `backend/api/main.py`, parameters, response schemas, and operational purpose.
+Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, including HTTP verb, source line numbers in `bbackend/api/main.py`, parameters, response schemas, and operational purpose.
 
 ---
 
 ### 5.1 System Core & Real-Time Meteorological Telemetry
 
 #### 1. `GET /`
-* **Line:** `backend/api/main.py:494`
+* **Line:** `bbackend/api/main.py:494`
 * **Purpose:** System identification and root health probe.
 * **Output:** JSON containing system name (`"Agraan-Drishti AI Core"`), version (`"2.4.0"`), and operational readiness flag.
 
 #### 2. `GET /api/realtime-weather/{lat}/{lon}`
-* **Line:** `backend/api/main.py:499`
+* **Line:** `bbackend/api/main.py:499`
 * **Purpose:** Ingests live observational ground-truth weather from Open-Meteo or IMD for real-time validation against neural precursor forecasts.
 * **Path Parameters:** `lat` (float), `lon` (float).
 * **Output:** Live temperature ($^\circ C$), relative humidity (%), surface pressure ($hPa$), precipitation rate ($mm/hr$), and wind velocity vectors.
 
 #### 3. `GET /api/radar/live`
-* **Line:** `backend/api/main.py:505`
+* **Line:** `bbackend/api/main.py:505`
 * **Purpose:** Fetches synthesized Doppler Weather Radar reflectivity mosaics ($dBZ$) for India.
 * **Output:** Active radar station coverage circles, maximum reflectivity, radial velocity, and echo-top height data.
 
 #### 4. `GET /api/satellite/status`
-* **Line:** `backend/api/main.py:511`
+* **Line:** `bbackend/api/main.py:511`
 * **Purpose:** Monitors satellite telemetry health for INSAT-3DR, INSAT-3D, and Sentinel-1/2 constellations.
 * **Output:** Ingest lag (seconds), radiometer sector timestamps, missing pixel percentage, active channels (TIR1, TIR2, WV, VIS), and orbital schedule.
 
 #### 5. `POST /api/satellite/ingest`
-* **Line:** `backend/api/main.py:535`
+* **Line:** `bbackend/api/main.py:535`
 * **Purpose:** Receives incoming INSAT-3DR NetCDF / HDF5 telemetry files or simulated orbital swath data and triggers the preprocessing pipeline.
 
 #### 6. `GET /api/satellite/image`
-* **Line:** `backend/api/main.py:549`
+* **Line:** `bbackend/api/main.py:549`
 * **Purpose:** Generates thermal infrared brightness temperature false-color heatmaps overlaying convective cloud tops onto the GIS canvas.
 
 ---
@@ -354,18 +354,18 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
 ### 5.2 Deep Neural Prediction & Nowcasting Engines
 
 #### 7. `GET /api/predict`
-* **Line:** `backend/api/main.py:786`
+* **Line:** `bbackend/api/main.py:786`
 * **Purpose:** Full-grid national inference pass across India's landmass using `MultiTaskPrecursorNet`.
 * **Output:** 2D spatial probability matrices for flash floods, cloudbursts, and severe thunderstorms across all monitored sub-basins.
 
 #### 8. `GET /api/predict-coordinate/{lat}/{lon}`
-* **Line:** `backend/api/main.py:1038`
+* **Line:** `bbackend/api/main.py:1038`
 * **Purpose:** Pinpoint coordinate prediction extracting tensor slices for specific villages, railway bridges, or dams.
 * **Path Parameters:** `lat` (float), `lon` (float).
 * **Query Parameters:** `forecast_hour` (int, default=2).
 
 #### 9. `GET /api/hazard-intelligence`
-* **Line:** `backend/api/main.py:1701`
+* **Line:** `bbackend/api/main.py:1701`
 * **Purpose:** The central orchestration engine of Agraan-Drishti. Whenever an operator clicks anywhere on the tactical map, this endpoint executes thermodynamic physics analysis, neural inference, orographic terrain indexing, domino cascade simulation, and demographic exposure calculation.
 * **Query Parameters:**
   - `lat` (float, required): Target latitude (e.g., `28.6139`).
@@ -393,7 +393,7 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
   ```
 
 #### 10. `GET /api/xai/{lat}/{lon}`
-* **Line:** `backend/api/main.py:1598`
+* **Line:** `bbackend/api/main.py:1598`
 * **Purpose:** Explainable AI (XAI) feature attribution using Integrated Gradients / SHAP values.
 * **Output:** Relative percentage contribution of each physical precursor (e.g., "IWV: 38%", "925 hPa Convergence: 31%", "CAPE: 18%", "Terrain Slope: 13%") so meteorologists understand *why* the neural network flagged the hazard.
 
@@ -402,25 +402,25 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
 ### 5.3 Multi-Hazard Domino Cascade & Geospatial Routing
 
 #### 11. `GET /api/cascading-chain/{lat}/{lon}`
-* **Line:** `backend/api/main.py:1181`
+* **Line:** `bbackend/api/main.py:1181`
 * **Purpose:** Evaluates multi-hazard secondary and tertiary domino failure chains for the specified coordinate (e.g., Cloudburst $	o$ Mudflow $	o$ Riverbed Siltation $	o$ Dam Spillway Overtopping $	o$ Downstream Bridge Scour).
 
 #### 12. `GET /api/cascade/{forecast_hour}`
-* **Line:** `backend/api/main.py:1615`
+* **Line:** `bbackend/api/main.py:1615`
 * **Purpose:** Time-stepped systemic cascade simulation tracking downstream flood wave progression across all major river basins over hours $T+1, T+2, T+4, T+6$.
 
 #### 13. `GET /api/safe-route/{lat}/{lon}`
-* **Line:** `backend/api/main.py:944`
+* **Line:** `bbackend/api/main.py:944`
 * **Purpose:** Dynamic Dijkstra / A* evacuation corridor routing.
 * **Path Parameters:** `lat`, `lon` of stranded civilians or rescue units.
 * **Operational Logic:** Automatically blacklists roads traversing floodplains, submerged railway underpasses, and slope failure debris corridors, returning the safest elevated route to designated relief shelters.
 
 #### 14. `GET /api/terrain`
-* **Line:** `backend/api/main.py:1572`
+* **Line:** `bbackend/api/main.py:1572`
 * **Purpose:** Returns SRTM/Copernicus digital elevation model (DEM) terrain slices, slope gradient maps, and flow accumulation matrices.
 
 #### 15. `GET /api/geocode`
-* **Line:** `backend/api/main.py:1095`
+* **Line:** `bbackend/api/main.py:1095`
 * **Purpose:** Forward and reverse geocoding resolving Indian village names, districts, and coordinates.
 
 ---
@@ -428,7 +428,7 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
 ### 5.4 Industrial SCADA, M2M Interlocks & Autonomous Actuation
 
 #### 16. `GET /api/infrastructure/m2m-interlocks/{lat}/{lon}`
-* **Line:** `backend/api/main.py:1302`
+* **Line:** `bbackend/api/main.py:1302`
 * **Purpose:** Monitors and retrieves active machine-to-machine (M2M) industrial interlock states across all four infrastructure sectors:
   1. `hydro_sluice_gate`: Sluice and radial spillway gates (IEC 60870-5-104).
   2. `railway_kavach`: Indian Railways Kavach / ATP speed capping (30 km/h restriction).
@@ -437,11 +437,11 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
 * **Key Fields Returned:** `composite_risk`, `interlock_triggered`, `override_window_seconds: 60`, `targets`, `transparency_framework`.
 
 #### 17. `POST /api/infrastructure/m2m-test-ping`
-* **Line:** `backend/api/main.py:1336`
+* **Line:** `bbackend/api/main.py:1336`
 * **Purpose:** Diagnostic heartbeat probe verifying sub-50ms SCADA PLC connectivity and encryption handshakes.
 
 #### 18. `POST /api/infrastructure/m2m-override`
-* **Line:** `backend/api/main.py:1348`
+* **Line:** `bbackend/api/main.py:1348`
 * **Purpose:** Instantaneous Human-in-the-Loop emergency veto. Allows an authorized EOC officer to abort a pending automated actuation before the 60-second countdown expires.
 
 ---
@@ -449,7 +449,7 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
 ### 5.5 Vulnerability, Demographics & Community Care Network
 
 #### 19. `GET /api/vulnerable-registry/{lat}/{lon}`
-* **Line:** `backend/api/main.py:1361`
+* **Line:** `bbackend/api/main.py:1361`
 * **Purpose:** Retrieves the localized, physical door-knock triage roster for local ASHA (Accredited Social Health Activist) and Anganwadi workers.
 * **Output:** List of registered vulnerable citizens living in the hazard zone:
   - Non-ambulatory elderly (`"Mobility Impaired"`), bedridden patients, infants, pregnant mothers.
@@ -457,7 +457,7 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
   - Assigned ASHA worker name, direct telephone contact, priority evacuation status, and destination relief camp.
 
 #### 20. `POST /api/vulnerable-registry/dispatch`
-* **Line:** `backend/api/main.py:1446`
+* **Line:** `bbackend/api/main.py:1446`
 * **Purpose:** Dispatches prioritized door-knock evacuation orders to on-duty ASHA workers and Civil Defence ward volunteers.
 
 ---
@@ -465,35 +465,35 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
 ### 5.6 Emergency Alerting, Broadcast & SMS Delivery
 
 #### 21. `GET /api/alerts`
-* **Line:** `backend/api/main.py:1504`
+* **Line:** `bbackend/api/main.py:1504`
 * **Purpose:** Retrieves currently active high-threat CAP alerts across India with severity, certainty, and urgency ratings.
 
 #### 22. `POST /api/alerts/broadcast`
-* **Line:** `backend/api/main.py:1560`
+* **Line:** `bbackend/api/main.py:1560`
 * **Purpose:** Dispatches multi-channel Common Alerting Protocol (CAP) messages across cellular broadcast networks, SMS, WhatsApp Business API, and village loudhailers.
 
 #### 23. `GET /api/alerts/history`
-* **Line:** `backend/api/main.py:1566`
+* **Line:** `bbackend/api/main.py:1566`
 * **Purpose:** Chronological queryable archive of all historical alerts issued by Agraan-Drishti.
 
 #### 24. `POST /api/alerts/create`
-* **Line:** `backend/api/main.py:2032`
+* **Line:** `bbackend/api/main.py:2032`
 * **Purpose:** Manual alert composition interface for disaster management officers.
 
 #### 25. `POST /api/alerts/send-sms`
-* **Line:** `backend/api/main.py:2047`
+* **Line:** `bbackend/api/main.py:2047`
 * **Purpose:** Bulk SMS dispatch interface interfacing with CDAC / telecom SMS gateways for geo-fenced civilian push alerts.
 
 #### 26. `GET /api/alerts/sms-logs`
-* **Line:** `backend/api/main.py:2066`
+* **Line:** `bbackend/api/main.py:2066`
 * **Purpose:** Telemetry delivery logs for all dispatched SMS messages (delivered, queued, failed).
 
 #### 27. `GET /api/alerts/affected-users`
-* **Line:** `backend/api/main.py:2019`
+* **Line:** `bbackend/api/main.py:2019`
 * **Purpose:** Computes the exact count and phone numbers of registered citizens residing within an active hazard polygon.
 
 #### 28. `WS /ws/alerts`
-* **Line:** `backend/api/main.py:2073`
+* **Line:** `bbackend/api/main.py:2073`
 * **Purpose:** Bidirectional WebSocket connection providing sub-10ms real-time push telemetry to all connected frontend HUD clients and EOC video walls.
 
 ---
@@ -501,35 +501,35 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
 ### 5.7 Crowdsourcing, Field Intelligence & Model Transparency
 
 #### 29. `POST /api/ground-report`
-* **Line:** `backend/api/main.py:1859`
+* **Line:** `bbackend/api/main.py:1859`
 * **Purpose:** Ingests crowdsourced ground truth from citizens, police officers, and ASHA workers (e.g., "Water rising 1 foot on Main St", "Culvert blocked by tree").
 
 #### 30. `GET /api/ground-reports`
-* **Line:** `backend/api/main.py:1893`
+* **Line:** `bbackend/api/main.py:1893`
 * **Purpose:** Retrieves verified crowdsourced ground reports within a spatial bounding box.
 
 #### 31. `POST /api/alert-feedback`
-* **Line:** `backend/api/main.py:1901`
+* **Line:** `bbackend/api/main.py:1901`
 * **Purpose:** Closed-loop feedback mechanism where emergency responders rate alert accuracy, providing labeled data for reinforcement learning.
 
 #### 32. `GET /api/model-report-card`
-* **Line:** `backend/api/main.py:1917`
+* **Line:** `bbackend/api/main.py:1917`
 * **Purpose:** Comprehensive machine learning report card displaying Precision, Recall, F1-score, False Alarm Rate, and Lead Time Accuracy across all hazard heads.
 
 #### 33. `GET /api/data-quality`
-* **Line:** `backend/api/main.py:1648`
+* **Line:** `bbackend/api/main.py:1648`
 * **Purpose:** Assesses sensor telemetry fidelity, reporting missing satellite pixels, dead weather station sensors, and data latency.
 
 #### 34. `GET /api/risk-summary` & `GET /api/state-risk-summary`
-* **Lines:** `backend/api/main.py:1681`, `907`
+* **Lines:** `bbackend/api/main.py:1681`, `907`
 * **Purpose:** State-by-state and national aggregate threat matrices ranking all 36 Indian States and Union Territories by composite hazard index.
 
 #### 35. `GET /api/monitored-locations`
-* **Line:** `backend/api/main.py:924`
+* **Line:** `bbackend/api/main.py:924`
 * **Purpose:** Returns the curated registry of all high-vulnerability pilot locations (e.g., Kedarnath, Wayanad, Teesta Basin, Chamoli, Delhi Yamuna, Muradnagar).
 
 #### 36. `GET /api/replay/{event_id}` & `GET /api/historical-events`
-* **Lines:** `backend/api/main.py:1457`, `850`
+* **Lines:** `bbackend/api/main.py:1457`, `850`
 * **Purpose:** Digital twin time-machine replay allowing operators to replay historical disasters (e.g., 2023 Sikkim GLOF, 2024 Wayanad landslide) with minute-by-minute satellite telemetry and simulated actuation.
 
 ---
@@ -537,11 +537,11 @@ Below is the complete, 100% codebase-anchored audit of all 38 active endpoints, 
 ### 5.8 User Authentication & Access Control
 
 #### 37. `POST /api/users/register` & `POST /api/users/login`
-* **Lines:** `backend/api/main.py:1979`, `2000`
+* **Lines:** `bbackend/api/main.py:1979`, `2000`
 * **Purpose:** Role-based access control (RBAC) authentication supporting 4 user roles: `CITIZEN`, `ASHA_WORKER`, `SCADA_ENGINEER`, and `EOC_COMMANDER`.
 
 #### 38. `GET /api/users`
-* **Line:** `backend/api/main.py:2012`
+* **Line:** `bbackend/api/main.py:2012`
 * **Purpose:** Administrative user registry management.
 
 ---
