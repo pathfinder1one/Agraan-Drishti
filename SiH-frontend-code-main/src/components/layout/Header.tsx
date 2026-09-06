@@ -21,7 +21,7 @@ export function Header() {
           <ShieldAlert size={18} className="text-white" />
         </div>
         <div className="leading-tight">
-          <div className="text-[14px] font-bold tracking-tight">DisasterGuard AI</div>
+          <div className="text-[14px] font-bold tracking-tight">Agraan AI</div>
           <div className="text-[10.5px] text-ink-faint">AI-driven hyper-local early warning</div>
         </div>
       </div>

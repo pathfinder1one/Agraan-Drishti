@@ -1,4 +1,4 @@
-# 🎯 DISASTERGUARD AI — Transparency & Feasibility Audit
+# 🎯 AGRAAN AI — Transparency & Feasibility Audit
 ## *What is Actually Built & Tested vs. High-Fidelity Prototype vs. Future Roadmap*
 
 > **The Golden Rule of Winning Hackathons:**  
@@ -76,7 +76,7 @@ Judges ko AI disaster management me sabse bada dar lagta hai: *"Yeh bacche overc
 
 Is dar ko proactively address karne ke liye presentation me yeh slide ya script use karo:
 
-| Failures of Past Startups (*One Concern* Trap) | DisasterGuard AI's Engineering Discipline |
+| Failures of Past Startups (*One Concern* Trap) | Agraan AI's Engineering Discipline |
 | :--- | :--- |
 | **Proprietary Black Box:** Secret algorithms with no physical explainability. | **Cell-Level XAI & Open Physics:** CAPE, IWV, CTT gradients + IEC 60870 open schemas. |
 | **Full Autonomous Overreach:** Claiming the AI directly commands city decisions. | **Human-in-the-Loop (HITL):** Strict 60s operator override before any interlock triggers. |

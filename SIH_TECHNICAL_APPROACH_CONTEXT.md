@@ -1,5 +1,5 @@
 # 🛡️ SMART INDIA HACKATHON 2026 — TECHNICAL APPROACH DOSSIER
-## Team: ALGO-X | Project: DISASTERGUARD AI
+## Team: ALGO-X | Project: AGRAAN AI
 ### Problem Statement: AI-Powered Hyperlocal Extreme Weather & Disaster Early Warning (Cloudburst, Flash Flood, Thunderstorm, Landslide)
 
 ---
@@ -7,7 +7,7 @@
 ## 1. THE CORE TECHNICAL THESIS (WHY OUR APPROACH WINS)
 Traditional Doppler radar and government portals have a fatal **"15-Minute Radar Blindspot"**: they detect rain only after moisture condenses into heavy hydrometeors in the sky, leaving zero evacuation time for mountain valleys and dense urban basins.
 
-**DisasterGuard AI’s Technical Approach** shifts the paradigm from *Reactive Rain Detection* to **Proactive Thermodynamic Precursor Nowcasting**:
+**Agraan AI’s Technical Approach** shifts the paradigm from *Reactive Rain Detection* to **Proactive Thermodynamic Precursor Nowcasting**:
 1. It ingests pre-convective atmospheric signals 2–6 hours before cloudburst formation.
 2. Runs a custom **Physics-Conditioned Spatiotemporal Deep Learning Network (ConvLSTM + Spatial/Channel Attention)** across a **310×310 subcontinent grid**.
 3. Feeds model predictions into a **Dynamic Cascading Domino Hazard Engine** (linking cloudbursts to river surges, soil saturation, and highway choking).

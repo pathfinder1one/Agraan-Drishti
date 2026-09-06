@@ -92,7 +92,7 @@ export function ReportsAnalyticsView({
   const handleDownloadSitrep = (record: any) => {
     const doc = `======================================================================
 NATIONAL DISASTER MANAGEMENT AUTHORITY (NDMA) / NDRF SITREP
-DISASTERGUARD AI - AUTOMATED SITUATION ASSESSMENT REPORT
+AGRAAN AI - AUTOMATED SITUATION ASSESSMENT REPORT
 ======================================================================
 REPORT IDENTIFIER  : ${record.id}
 DATE & TIMESTAMP   : ${record.time}
@@ -116,7 +116,7 @@ DISPATCH CHANNELS  : ${record.channelsDispatched} Actuated Channels
 - Dam spillway pre-discharge protocol: IEC 60870-5-104
 - Automated train caution orders capped to 30 km/h (Kavach-API)
 ======================================================================
-AUTHORITY: DisasterGuard AI Pre-Impact Defense System
+AUTHORITY: Agraan AI Pre-Impact Defense System
 ======================================================================`;
     const blob = new Blob([doc], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);

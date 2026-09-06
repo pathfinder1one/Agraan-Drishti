@@ -1,5 +1,5 @@
 """
-DisasterGuard AI — SMS Gateway Provider Service
+Agraan AI — SMS Gateway Provider Service
 Integrates Twilio SMS API with location-aware dispatch, cooldown rules, and simulation fallback.
 """
 
@@ -47,10 +47,10 @@ def generate_alert_sms_text(disaster_type: str, severity: str, location_name: st
     """Build a concise, standardized emergency SMS alert template."""
     action = action_text or "Please move to high ground or a designated shelter immediately and follow official instructions."
     return (
-        f"🚨 DISASTERGUARD ALERT: {disaster_type.upper()} detected near {location_name}.\n"
+        f"🚨 AGRAAN ALERT: {disaster_type.upper()} detected near {location_name}.\n"
         f"Risk Level: {severity} ({risk_pct:.0f}% confidence).\n"
         f"{action}\n"
-        f"— NDMA / DisasterGuard AI Rapid Response"
+        f"— NDMA / Agraan AI Rapid Response"
     )
 
 
@@ -99,11 +99,11 @@ def send_single_sms(phone_number: str, message: str) -> Dict[str, Any]:
     msg_id = f"SM_PROT_{uuid.uuid4().hex[:16].upper()}"
     return {
         "success": True,
-        "provider": "disasterguard_nic_gateway_sim",
+        "provider": "agraan_nic_gateway_sim",
         "message_id": msg_id,
         "status": "DELIVERED",
         "phone_number": clean_phone,
-        "note": "Delivered via DisasterGuard Emergency SMS Gateway Route"
+        "note": "Delivered via Agraan Emergency SMS Gateway Route"
     }
 
 

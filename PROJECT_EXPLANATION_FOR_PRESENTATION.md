@@ -1,4 +1,4 @@
-# 🛡️ DISASTERGUARD AI — COMPLETE SYSTEM ARCHITECTURE & FEATURE EXPLANATION GUIDE
+# 🛡️ AGRAAN AI — COMPLETE SYSTEM ARCHITECTURE & FEATURE EXPLANATION GUIDE
 
 > **Target Audience:** Team Presentation, Pitch Deck Creation & SIH/Hackathon Jury Q&A  
 > **Core Value Proposition:** India's first unified, lightweight, explainable AI nowcasting system bridging atmospheric thermodynamics directly to village-level cascading hazard warnings.
@@ -203,7 +203,7 @@
 
 | Question | Winning Bulletproof Answer |
 |---|---|
-| **"SACHET already sends geo-targeted alerts. Why do we need you?"** | *"SACHET sirf alerts forward karta hai jab disaster ho chuka hota hai ya radar me dikh chuka hota hai. SACHET ke paas apna koi multi-hazard physics/AI model nahi hai. DisasterGuard AI alert GENERATE karta hai 2-6 ghante pehle convective initiation predict karke, aur village-level vulnerability ke hisaab se prioritize karta hai."* |
+| **"SACHET already sends geo-targeted alerts. Why do we need you?"** | *"SACHET sirf alerts forward karta hai jab disaster ho chuka hota hai ya radar me dikh chuka hota hai. SACHET ke paas apna koi multi-hazard physics/AI model nahi hai. Agraan AI alert GENERATE karta hai 2-6 ghante pehle convective initiation predict karke, aur village-level vulnerability ke hisaab se prioritize karta hai."* |
 | **"False alarm rate kitna hai? Agar baar baar bajega toh log ignore karenge."** | *"Hamara system 3-step false alarm filter use karta hai: (1) Spatial + Channel CBAM Attention, (2) Self-aware Forecast Reliability metric jo unstable single-frame spikes ko bust flag karti hai, aur (3) IMDAA 30-year validation jahan hamara False Alarm Ratio sirf 14.2% hai (IMD ka 38% hai)."* |
 | **"GraphCast ya MetNet kyun nahi use kiya?"** | *"GraphCast aur MetNet global models hain jo multi-million dollar TPU supercomputers par chalte hain aur Indian micro-catchments ke liye tuned nahi hain. Hamara SevereWeatherNet sirf 318,000 parameters ka lightweight model hai jo ek basic server ya edge device par 48 milliseconds me inference run karta hai."* |
 | **"Anpadh gaon walo tak reach kaise hogi?"** | *"Hamare system me built-in Multi-Channel Fallback hai. Dashboard me Web Speech API se direct regional language (Hindi) me Audio Voice Siren broadcast hoti hai, jise gram panchayat ke loudspeaker ya automated IVR call par chalaya ja sakta hai."* |

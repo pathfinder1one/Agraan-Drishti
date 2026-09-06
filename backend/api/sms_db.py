@@ -1,5 +1,5 @@
 """
-DisasterGuard AI — Emergency SMS Alert System Database
+Agraan AI — Emergency SMS Alert System Database
 SQLite-backed persistence for:
 1. Registered users (phone, GPS location, SMS consent)
 2. Disaster alerts (type, risk score, severity, center coords, radius)

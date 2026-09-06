@@ -1,6 +1,6 @@
-# DisasterGuard AI — Dashboard
+# Agraan AI — Dashboard
 
-A pixel-faithful, fully interactive rebuild of the DisasterGuard AI early-warning
+A pixel-faithful, fully interactive rebuild of the Agraan AI early-warning
 dashboard, split into separate, typed components using the requested stack:
 
 - **React 18 + TypeScript**

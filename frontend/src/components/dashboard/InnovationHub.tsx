@@ -299,7 +299,7 @@ export function InnovationHub({ monitoredLocation, locationName, selectedCell }:
               <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-panel-alt">
                 <div className="flex items-center gap-2 text-emerald-400 font-bold text-[15px]">
                   <Award size={18} />
-                  <span>DisasterGuard AI — Official Model Audit & Performance Card</span>
+                  <span>Agraan AI — Official Model Audit & Performance Card</span>
                 </div>
                 <button onClick={() => setShowAuditModal(false)} className="text-ink-dim hover:text-white">
                   <X size={18} />
@@ -345,7 +345,7 @@ export function InnovationHub({ monitoredLocation, locationName, selectedCell }:
 
                 <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 text-[11.5px] text-ink-dim space-y-1">
                   <div className="font-bold text-blue-400">Why this blows away single-agency systems (SACHET & Damini):</div>
-                  <p>SACHET is merely an alert aggregation clearinghouse without predictive fusion. Damini is limited strictly to lightning point sensors. DisasterGuard AI is the first unified spatiotemporal nowcasting engine connecting thermodynamic convective initiation directly to catchment runoff and village-level evacuation windows.</p>
+                  <p>SACHET is merely an alert aggregation clearinghouse without predictive fusion. Damini is limited strictly to lightning point sensors. Agraan AI is the first unified spatiotemporal nowcasting engine connecting thermodynamic convective initiation directly to catchment runoff and village-level evacuation windows.</p>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">

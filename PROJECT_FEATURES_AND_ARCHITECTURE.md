@@ -1,4 +1,4 @@
-# 🛡️ DISASTERGUARD AI — Project Features & Architecture Guide
+# 🛡️ AGRAAN AI — Project Features & Architecture Guide
 
 > **AI-Powered Hyper-Local Extreme Weather & Disaster Early Warning System**  
 > *Built for Smart India Hackathon & National Disaster Management Authority (NDMA / NDRF)*
@@ -6,7 +6,7 @@
 ---
 
 ## 📌 Executive Summary
-**DISASTERGUARD AI** is a state-of-the-art early warning and command center platform designed to detect, forecast, and dispatch alerts for high-impact convective weather disasters: **Cloudbursts, Flash Floods, Severe Thunderstorms, and Landslides**.
+**AGRAAN AI** is a state-of-the-art early warning and command center platform designed to detect, forecast, and dispatch alerts for high-impact convective weather disasters: **Cloudbursts, Flash Floods, Severe Thunderstorms, and Landslides**.
 
 By fusing real-time geostationary satellite streams (**INSAT-3D/3DR**), Doppler Weather Radar (**DWR**), Numerical Weather Prediction models (**IMDAA / ERA5**), and High-Resolution Topography (**DEM**), the system provides hyper-local forecasts with a **2 to 6 hour early warning lead time**, bridging the critical gap between macro-scale weather forecasts and grassroots emergency action.
 
@@ -30,7 +30,7 @@ By fusing real-time geostationary satellite streams (**INSAT-3D/3DR**), Doppler 
 
 ```
                                     ┌────────────────────────┐
-                                    │   DISASTERGUARD AI     │
+                                    │   AGRAAN AI     │
                                     │    COMMAND CENTRE      │
                                     └───────────┬────────────┘
          ┌──────────────────┬───────────────────┼───────────────────┬──────────────────┐

@@ -55,11 +55,16 @@ export function HazardForecastPanel({ maxRisks, selectedCell, monitoredLocation,
     if (maxRisks && maxRisks[h.key] !== undefined) {
       riskVal = Math.round(maxRisks[h.key] * 100);
     } else if (h.key === "heavy_rainfall") {
-      riskVal = Math.round(((maxRisks?.cloudburst || 0.4) * 0.9 + (maxRisks?.flash_flood || 0.4) * 0.3) * 100);
+      const cb = maxRisks?.cloudburst ?? 0.05;
+      const ff = maxRisks?.flash_flood ?? 0.05;
+      riskVal = Math.round((cb * 0.7 + ff * 0.3) * 100);
     } else if (h.key === "landslide") {
-      riskVal = Math.round(((maxRisks?.flash_flood || 0.3) * 0.75 + (maxRisks?.cloudburst || 0.3) * 0.35) * 100);
+      const ff = maxRisks?.flash_flood ?? 0.05;
+      const cb = maxRisks?.cloudburst ?? 0.05;
+      riskVal = Math.round((ff * 0.7 + cb * 0.3) * 100);
     } else if (h.key === "river_overflow") {
-      riskVal = Math.round(((maxRisks?.flash_flood || 0.4) * 0.85) * 100);
+      const ff = maxRisks?.flash_flood ?? 0.05;
+      riskVal = Math.round(ff * 0.85 * 100);
     }
     riskVal = Math.min(99, Math.max(5, riskVal));
     

@@ -89,7 +89,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialPhone = "" }: Aut
       });
       const data = await res.json();
       if (data.status === "success" && data.user) {
-        localStorage.setItem("disasterguard_user", JSON.stringify(data.user));
+        localStorage.setItem("agraan_user", JSON.stringify(data.user));
         onSuccess(data.user);
         onClose();
       } else {
@@ -120,7 +120,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialPhone = "" }: Aut
       });
       const data = await res.json();
       if (data.status === "success" && data.user) {
-        localStorage.setItem("disasterguard_user", JSON.stringify(data.user));
+        localStorage.setItem("agraan_user", JSON.stringify(data.user));
         onSuccess(data.user);
         onClose();
       } else {
@@ -143,7 +143,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialPhone = "" }: Aut
       location_name: "Rudraprayag Command Sector",
       sms_enabled: true
     };
-    localStorage.setItem("disasterguard_user", JSON.stringify(guestUser));
+    localStorage.setItem("agraan_user", JSON.stringify(guestUser));
     onSuccess(guestUser);
     onClose();
   };
@@ -167,7 +167,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialPhone = "" }: Aut
             </div>
             <div>
               <h2 className="text-lg font-extrabold tracking-tight">Emergency Access</h2>
-              <p className="text-xs text-blue-400 font-mono">DisasterGuard AI Alert Network</p>
+              <p className="text-xs text-blue-400 font-mono">Agraan AI Alert Network</p>
             </div>
           </div>
           <button

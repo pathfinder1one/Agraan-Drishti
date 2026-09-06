@@ -18,7 +18,7 @@ function App() {
           <div>
 
             <h1>
-              DISASTERGUARD AI
+              AGRAAN AI
             </h1>
 
             <p>

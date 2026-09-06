@@ -27,6 +27,7 @@ export function SatelliteStateDashboard({
 
   const topRisk = states[0];
   const levelClass: Record<string, string> = {
+    extreme: "border-red-500/50 bg-red-500/10 text-red-300",
     severe: "border-red-500/50 bg-red-500/10 text-red-300",
     high: "border-orange-400/50 bg-orange-500/10 text-orange-300",
     moderate: "border-yellow-400/50 bg-yellow-500/10 text-yellow-200",
@@ -58,10 +59,27 @@ export function SatelliteStateDashboard({
           <div className="mt-2 flex items-center gap-2 text-ink font-bold"><MapPin size={16} className="text-blue-400" /> {selectedLocationName}</div>
           <p className="mt-2 text-xs text-ink-dim">Searching any Indian city updates the satellite crop and map. Click a State/UT card below to focus the command dashboard there.</p>
         </div>
-        <div className="rounded-xl border border-risk-extreme/40 bg-risk-extreme/10 p-4">
-          <p className="text-[11px] uppercase tracking-wider text-red-300 font-bold">Highest current state signal</p>
-          <div className="mt-2 flex items-center gap-2 text-ink font-extrabold"><ShieldAlert size={17} className="text-red-400" /> {topRisk?.state ?? "Loading..."}</div>
-          <p className="mt-1 text-sm text-red-200">{topRisk ? `${topRisk.overall_risk}% model risk` : ""}</p>
+        <div className={`rounded-xl border p-4 transition-all ${
+          (topRisk?.overall_risk || 0) >= 70 
+            ? "border-red-500/40 bg-red-500/10 text-red-300"
+            : (topRisk?.overall_risk || 0) >= 45
+            ? "border-orange-500/40 bg-orange-500/10 text-orange-300"
+            : (topRisk?.overall_risk || 0) >= 20
+            ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-300"
+            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+        }`}>
+          <p className="text-[11px] uppercase tracking-wider font-bold opacity-80">
+            {(topRisk?.overall_risk || 0) >= 70 ? "Critical State Warning" : ((topRisk?.overall_risk || 0) >= 45 ? "Active Regional Convective Zone" : ((topRisk?.overall_risk || 0) >= 20 ? "Highest Current State Signal" : "Subcontinent Baseline Status"))}
+          </p>
+          <div className="mt-2 flex items-center gap-2 font-extrabold text-ink">
+            <ShieldAlert size={17} className={
+              (topRisk?.overall_risk || 0) >= 70 ? "text-red-400" : ((topRisk?.overall_risk || 0) >= 45 ? "text-orange-400" : ((topRisk?.overall_risk || 0) >= 20 ? "text-yellow-400" : "text-emerald-400"))
+            } /> 
+            {topRisk?.state ?? "Loading..."}
+          </div>
+          <p className="mt-1 text-sm font-semibold opacity-90">
+            {topRisk ? `${topRisk.overall_risk}% model risk · ${topRisk.level?.toUpperCase()}` : ""}
+          </p>
         </div>
       </div>
 

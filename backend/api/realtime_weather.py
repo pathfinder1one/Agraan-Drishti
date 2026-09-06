@@ -1,5 +1,5 @@
 """
-Real-Time Meteorological & Satellite Data Service for DisasterGuard AI.
+Real-Time Meteorological & Satellite Data Service for Agraan AI.
 Fetches live atmospheric sounding, precipitation, wind, and radar telemetry
 from Open-Meteo and RainViewer APIs with in-memory caching (TTL 300s).
 """
@@ -18,10 +18,11 @@ _RADAR_CACHE: Dict[str, Any] = {"timestamp": 0, "data": None}
 CACHE_TTL = 300  # 5 minutes
 
 
-def fetch_realtime_weather(lat: float, lon: float) -> Dict[str, Any]:
+def fetch_realtime_weather(lat: float, lon: float, only_if_cached: bool = False) -> Optional[Dict[str, Any]]:
     """
     Fetch real-time atmospheric telemetry for given coordinates.
     Cached for 5 minutes to ensure high performance and zero rate-limiting.
+    When only_if_cached=True, returns None immediately on cache-miss to prevent blocking loops.
     """
     cache_key = (round(lat, 2), round(lon, 2))
     now = time.time()
@@ -30,6 +31,9 @@ def fetch_realtime_weather(lat: float, lon: float) -> Dict[str, Any]:
         cached_time, cached_data = _WEATHER_CACHE[cache_key]
         if now - cached_time < CACHE_TTL:
             return cached_data
+
+    if only_if_cached:
+        return None
 
     # Query Open-Meteo real-time telemetry
     url = (
@@ -41,12 +45,17 @@ def fetch_realtime_weather(lat: float, lon: float) -> Dict[str, Any]:
         f"timezone=auto"
     )
 
+    import ssl
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+
     try:
         req = urllib.request.Request(
             url,
-            headers={"User-Agent": "DisasterGuard-AI-WeatherSync/1.0"}
+            headers={"User-Agent": "Agraan-AI-WeatherSync/1.0"}
         )
-        with urllib.request.urlopen(req, timeout=4.0) as resp:
+        with urllib.request.urlopen(req, timeout=2.5, context=ssl_ctx) as resp:
             raw = json.loads(resp.read().decode("utf-8"))
             curr = raw.get("current", {})
 
@@ -131,7 +140,7 @@ def fetch_realtime_radar_status() -> Dict[str, Any]:
     try:
         req = urllib.request.Request(
             url,
-            headers={"User-Agent": "DisasterGuard-AI-RadarSync/1.0"}
+            headers={"User-Agent": "Agraan-AI-RadarSync/1.0"}
         )
         with urllib.request.urlopen(req, timeout=4.0) as resp:
             data = json.loads(resp.read().decode("utf-8"))

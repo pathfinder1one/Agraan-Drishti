@@ -1,4 +1,4 @@
-# DISASTERGUARD AI — Full Project Context
+# AGRAAN AI — Full Project Context
 
 ## Project Overview
 This is a **Smart India Hackathon (SIH)** project for **real-time severe weather prediction** across India. It predicts Flash Floods, Cloudbursts, and Thunderstorms using a deep learning model called `SevereWeatherNet`, and visualizes the results as interactive heatmaps on a Leaflet map.
@@ -8,7 +8,7 @@ This is a **Smart India Hackathon (SIH)** project for **real-time severe weather
 ## Architecture
 
 ```
-DISASTERGUARD AI/
+AGRAAN AI/
 ├── backend/
 │   ├── api/
 │   │   ├── main.py          # FastAPI server (all API endpoints)
@@ -174,14 +174,14 @@ Generates a synthetic weather tensor of shape `[6, 10, 310, 310]` (6 hours, 10 f
 
 ### Backend
 ```bash
-cd "DISASTERGUARD AI"
+cd "AGRAAN AI"
 python backend/api/generate_live.py   # Generate synthetic data first
 uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Frontend
 ```bash
-cd "DISASTERGUARD AI/frontend"
+cd "AGRAAN AI/frontend"
 npm install    # If node_modules missing
 npm run dev    # Starts on http://localhost:5173
 ```

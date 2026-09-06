@@ -262,7 +262,7 @@ export function Header({
           </div>
           <div>
             <div className="font-bold text-[14px] leading-tight text-ink flex items-center gap-1.5">
-              DISASTERGUARD <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">AI</span>
+              AGRAAN <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">AI</span>
             </div>
             <div className="text-[10.5px] text-ink-faint">Early Warning & SCADA Command</div>
           </div>

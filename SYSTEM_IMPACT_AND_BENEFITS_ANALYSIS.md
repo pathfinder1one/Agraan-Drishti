@@ -1,5 +1,5 @@
-# 🌐 DISASTERGUARD AI — COMPLETE SYSTEM-WIDE IMPACT & BENEFIT AUDIT
-**Project:** DisasterGuard AI (Alert India) | **Team:** ALGO-X | **Event:** Smart India Hackathon (SIH 2026)  
+# 🌐 AGRAAN AI — COMPLETE SYSTEM-WIDE IMPACT & BENEFIT AUDIT
+**Project:** Agraan AI (Alert India) | **Team:** ALGO-X | **Event:** Smart India Hackathon (SIH 2026)  
 **Scope:** Exhaustive Feature-by-Feature Socio-Economic, Technical & Life-Safety Impact Analysis  
 
 ---
@@ -12,7 +12,7 @@ Every year, the Government of India, State Disaster Management Authorities (SDMA
 3. Submerged electrical transformers and drowned municipal power sub-stations.
 4. Ex-gratia compensation for lost lives and drowned livestock.
 
-**DisasterGuard AI** fundamentally re-engineers this reactive model into a **Pre-Impact Autonomous Defense Ecosystem**. By uniting **physics-informed spatio-temporal deep learning** ($1.2\text{ km}$, $+2\text{ to }+4\text{ hours}$ lead time) with **Machine-to-Machine (M2M) industrial SCADA actuation**, **offline peer-to-peer BLE mesh relays**, and **ASHA caretaker registries**, the platform ensures that before floodwaters or mudflows strike, people are evacuated, dams are drawn down safely, trains are slowed, and roads are blocked.
+**Agraan AI** fundamentally re-engineers this reactive model into a **Pre-Impact Autonomous Defense Ecosystem**. By uniting **physics-informed spatio-temporal deep learning** ($1.2\text{ km}$, $+2\text{ to }+4\text{ hours}$ lead time) with **Machine-to-Machine (M2M) industrial SCADA actuation**, **offline peer-to-peer BLE mesh relays**, and **ASHA caretaker registries**, the platform ensures that before floodwaters or mudflows strike, people are evacuated, dams are drawn down safely, trains are slowed, and roads are blocked.
 
 ---
 
@@ -278,7 +278,7 @@ Every year, the Government of India, State Disaster Management Authorities (SDMA
 
 ## 📊 Comprehensive System Impact Summary Matrix
 
-| Evaluation Dimension | Status Quo Legacy Systems | DisasterGuard AI Architecture | Quantitative Advantage |
+| Evaluation Dimension | Status Quo Legacy Systems | Agraan AI Architecture | Quantitative Advantage |
 | :--- | :--- | :--- | :--- |
 | **Spatial Precision** | District Polygon ($40\text{–}60\text{ km}$) | Micro-Catchment ($1.2\text{ km}$) | **$50\times$ Higher Resolution** |
 | **Warning Lead Time** | $10\text{–}20\text{ minutes}$ | $+2\text{ to }+4\text{ Hours}$ | **$8\times$ Greater Reaction Window** |
@@ -293,7 +293,7 @@ Every year, the Government of India, State Disaster Management Authorities (SDMA
 
 ## 🎤 The Final SIH 2026 Jury Pitch
 
-> *"Judges, DisasterGuard AI is not an incremental weather dashboard. **It is an end-to-end, 42-feature National Autonomous Defense Ecosystem.**  
+> *"Judges, Agraan AI is not an incremental weather dashboard. **It is an end-to-end, 42-feature National Autonomous Defense Ecosystem.**  
 > - It solves the **Sensor Gap** by fusing ISRO satellites with Doppler radars without spending a single rupee on new sensors.  
 > - It solves the **Physics Gap** by pairing deep learning with thermodynamic DEM terrain anomalies.  
 > - It solves the **Machine Gap** by actuating dams and trains before bridges collapse.  

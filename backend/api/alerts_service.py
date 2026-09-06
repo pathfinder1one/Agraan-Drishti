@@ -1,5 +1,5 @@
 """
-DisasterGuard AI — Real Disaster Alerting & Emergency Dispatch Service
+Agraan AI — Real Disaster Alerting & Emergency Dispatch Service
 ---------------------------------------------------------------------
 Integrates:
 1. Inbound Government Feeds: Live NDMA SACHET Portal OASIS CAP 1.2 RSS Feed
@@ -70,7 +70,7 @@ def fetch_sachet_rss_alerts() -> List[Dict[str, Any]]:
 
     req = urllib.request.Request(
         NDMA_SACHET_RSS_URL,
-        headers={"User-Agent": "DisasterGuard-AI/2.0 (NDMA-Integrated Early Warning Client)"}
+        headers={"User-Agent": "Agraan-AI/2.0 (NDMA-Integrated Early Warning Client)"}
     )
 
     parsed_alerts: List[Dict[str, Any]] = []
@@ -205,7 +205,7 @@ def compute_hyperlocal_nowcast_alerts(
             "lon": round(lon, 4),
             "action_protocol": "EVACUATE LOW-LYING BASIN: Move 50m above riverbed contour. Restrict traffic on submersible bridges. Deploy SDRF swift-water rescue teams.",
             "full_description": f"Hyperlocal nowcast predicts elevated runoff risk ({flood_prob*100:.1f}%) for {dist_name} basin within next {forecast_hour} hours. Live observed precipitation: {precip:.1f} mm, RH: {rh:.0f}%.",
-            "source": "DISASTERGUARD ML NOWCAST",
+            "source": "AGRAAN ML NOWCAST",
             "is_official_gov": False
         })
 
@@ -225,7 +225,7 @@ def compute_hyperlocal_nowcast_alerts(
             "lon": round(lon, 4),
             "action_protocol": "INTENSE CONVECTIVE DOWNPOUR ALERT: Immediate indoor shelter mandatory. Clear municipal nullah bottlenecks. Stage motorized rescue boats.",
             "full_description": f"Extreme convective potential ({cb_prob*100:.1f}%) and CAPE ({cape:.0f} J/kg) detected over {dist_name}. Localized downpour expected in +{forecast_hour}h.",
-            "source": "DISASTERGUARD ML NOWCAST",
+            "source": "AGRAAN ML NOWCAST",
             "is_official_gov": False
         })
 
@@ -245,7 +245,7 @@ def compute_hyperlocal_nowcast_alerts(
             "lon": round(lon, 4),
             "action_protocol": "HIGH-VOLTAGE LIGHTNING RISK: Cease all open-field agricultural activities. Avoid metallic structures and trees. Disconnect high-voltage substation feeds.",
             "full_description": f"Convective squall winds ({wind_kmh:.1f} km/h) and lightning swarm potential ({ts_prob*100:.1f}%) active in {dist_name}. Avoid open fields.",
-            "source": "DISASTERGUARD ML NOWCAST",
+            "source": "AGRAAN ML NOWCAST",
             "is_official_gov": False
         })
 
@@ -265,7 +265,7 @@ def compute_hyperlocal_nowcast_alerts(
             "lon": round(lon, 4),
             "action_protocol": "SLOPE INSTABILITY ALERT: Evacuate steep hillsides and river cutting banks. Monitor geotechnical pore pressure sensors. Clear arterial highway chokepoints.",
             "full_description": f"Critical slope failure probability ({ls_prob*100:.1f}%) calculated from DEM gradient and soil saturation in {dist_name}.",
-            "source": "DISASTERGUARD ML NOWCAST",
+            "source": "AGRAAN ML NOWCAST",
             "is_official_gov": False
         })
 
@@ -344,7 +344,7 @@ def get_unified_alerts(
             "lon": round(lon or 78.0, 4),
             "action_protocol": "ALL CLEAR: Atmospheric telemetry indicates stable conditions. Standard routine meteorological monitoring in progress. No evacuation or sirens required.",
             "full_description": f"Current temperature: {weather.get('temperature_c', 24)}°C, RH: {weather.get('relative_humidity_pct', 60)}%, Precipitation: {weather.get('precipitation_mm', 0)} mm. Atmospheric parameters well below disaster thresholds.",
-            "source": "DISASTERGUARD NOWCAST AUDIT",
+            "source": "AGRAAN NOWCAST AUDIT",
             "is_official_gov": False,
             "is_all_clear": True
         })
