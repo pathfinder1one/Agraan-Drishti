@@ -13,6 +13,17 @@
     --color-ink: #0f172a;
     --color-ink-dim: #475569;
     --color-ink-faint: #64748b;
+
+    /* Shadcn UI tokens */
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 93%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --border: 214.3 31.8% 88%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 1rem;
   }
   
   .dark {
@@ -25,6 +36,16 @@
     --color-ink: #e7ebf3;
     --color-ink-dim: #8b95ab;
     --color-ink-faint: #5b6478;
+
+    /* Shadcn UI tokens */
+    --background: 224 71% 4%;
+    --foreground: 210 40% 98%;
+    --card: 224 71% 6%;
+    --card-foreground: 210 40% 98%;
+    --muted: 223 47% 11%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --border: 216 34% 17%;
+    --ring: 217.2 91.2% 59.8%;
   }
 }
 

@@ -143,12 +143,13 @@ def compute_hyperlocal_nowcast_alerts(
     lat: float,
     lon: float,
     location_name: str,
-    forecast_hour: int = 2
+    forecast_hour: int = 2,
+    coordinate_risks: Optional[Dict[str, float]] = None
 ) -> List[Dict[str, Any]]:
     """
     Compute real-time hyperlocal nowcast alerts (1-6h lead time) for the exact coordinates.
-    Evaluates real atmospheric sounding (Open-Meteo precipitation, CAPE, wind)
-    and terrain characteristics.
+    Evaluates real atmospheric sounding (Open-Meteo precipitation, CAPE, wind),
+    terrain characteristics, and central SevereWeatherNet neural/physics coordinate risks.
     """
     weather = fetch_realtime_weather(lat, lon)
     dist_name, state_name = lookup_district_state(lat, lon)
@@ -163,14 +164,33 @@ def compute_hyperlocal_nowcast_alerts(
 
     alerts: List[Dict[str, Any]] = []
 
-    # 1. Flash Flood / Hydro-Surge Assessment
-    # High rainfall, or mountainous terrain with moisture convergence
+    # If coordinate_risks provided by central model engine, use them directly for 100% unified physical consistency
     is_mountainous = lat > 27.0 and (lon > 75.0 and lon < 95.0)
-    flood_prob = min(0.95, (precip / 30.0) * 0.6 + (0.35 if is_mountainous and precip > 2.0 else 0.1) + (rh / 200.0))
-    if is_mountainous and (precip > 5.0 or rh > 88.0):
-        flood_prob = max(flood_prob, 0.76)
-    
-    if flood_prob >= 0.40:
+    if coordinate_risks:
+        flood_prob = float(coordinate_risks.get("flash_flood", 0.0))
+        cb_prob = float(coordinate_risks.get("cloudburst", 0.0))
+        ts_prob = float(coordinate_risks.get("severe_thunderstorm", 0.0))
+        ls_prob = float(coordinate_risks.get("landslide", 0.0))
+    else:
+        flood_prob = min(0.95, (precip / 30.0) * 0.6 + (0.35 if is_mountainous and precip > 2.0 else 0.1) + (rh / 200.0))
+        if is_mountainous and (precip > 5.0 or rh > 88.0):
+            flood_prob = max(flood_prob, 0.76)
+
+        cb_prob = min(0.92, (cape / 2500.0) * 0.55 + (precip / 40.0) * 0.45)
+        if is_mountainous and cape > 800.0:
+            cb_prob = max(cb_prob, 0.68)
+        if cb_prob >= 0.45 or wcode in [80, 81, 82]:
+            cb_prob = max(cb_prob, 0.62)
+
+        ts_prob = min(0.90, (cape / 1800.0) * 0.5 + (wind_kmh / 60.0) * 0.4)
+        if wcode in [95, 96, 99]:
+            ts_prob = max(ts_prob, 0.82)
+        elif wind_kmh > 35.0 or cape > 900.0:
+            ts_prob = max(ts_prob, 0.54)
+        ls_prob = 0.0
+
+    # 1. Flash Flood / Hydro-Surge Assessment
+    if flood_prob >= 0.35:
         sev = "emergency" if flood_prob >= 0.75 else ("warning" if flood_prob >= 0.55 else "watch")
         alerts.append({
             "id": f"ALT-FF-{int(lat*10)%90:02d}{int(lon*10)%90:02d}-{forecast_hour}H",
@@ -184,20 +204,14 @@ def compute_hyperlocal_nowcast_alerts(
             "lat": round(lat, 4),
             "lon": round(lon, 4),
             "action_protocol": "EVACUATE LOW-LYING BASIN: Move 50m above riverbed contour. Restrict traffic on submersible bridges. Deploy SDRF swift-water rescue teams.",
-            "full_description": f"Hyperlocal nowcast predicts elevated runoff risk for {dist_name} basin within next {forecast_hour} hours. Live observed precipitation: {precip:.1f} mm, RH: {rh:.0f}%.",
+            "full_description": f"Hyperlocal nowcast predicts elevated runoff risk ({flood_prob*100:.1f}%) for {dist_name} basin within next {forecast_hour} hours. Live observed precipitation: {precip:.1f} mm, RH: {rh:.0f}%.",
             "source": "DISASTERGUARD ML NOWCAST",
             "is_official_gov": False
         })
 
     # 2. Convective Cloudburst Torrent Assessment
-    # Extreme CAPE (>1000 J/kg) + heavy convective rainfall
-    cb_prob = min(0.92, (cape / 2500.0) * 0.55 + (precip / 40.0) * 0.45)
-    if is_mountainous and cape > 800.0:
-        cb_prob = max(cb_prob, 0.68)
-        
-    if cb_prob >= 0.45 or wcode in [80, 81, 82]:
-        cb_prob = max(cb_prob, 0.62)
-        sev = "emergency" if cb_prob >= 0.70 else "warning"
+    if cb_prob >= 0.35:
+        sev = "emergency" if cb_prob >= 0.70 else ("warning" if cb_prob >= 0.50 else "watch")
         alerts.append({
             "id": f"ALT-CB-{int(lat*10)%90:02d}{int(lon*10)%90:02d}-{forecast_hour}H",
             "title": f"{dist_name} Intense Convective Torrent Risk",
@@ -210,20 +224,13 @@ def compute_hyperlocal_nowcast_alerts(
             "lat": round(lat, 4),
             "lon": round(lon, 4),
             "action_protocol": "INTENSE CONVECTIVE DOWNPOUR ALERT: Immediate indoor shelter mandatory. Clear municipal nullah bottlenecks. Stage motorized rescue boats.",
-            "full_description": f"Extreme convective available potential energy ({cape:.0f} J/kg) detected over {dist_name}. Sudden localized burst expected in +{forecast_hour}h.",
+            "full_description": f"Extreme convective potential ({cb_prob*100:.1f}%) and CAPE ({cape:.0f} J/kg) detected over {dist_name}. Localized downpour expected in +{forecast_hour}h.",
             "source": "DISASTERGUARD ML NOWCAST",
             "is_official_gov": False
         })
 
     # 3. Severe Thunderstorm & Lightning Squall Assessment
-    # High CAPE or squall wind gusts or lightning weather codes
-    ts_prob = min(0.90, (cape / 1800.0) * 0.5 + (wind_kmh / 60.0) * 0.4)
-    if wcode in [95, 96, 99]:
-        ts_prob = max(ts_prob, 0.82)
-    elif wind_kmh > 35.0 or cape > 900.0:
-        ts_prob = max(ts_prob, 0.54)
-
-    if ts_prob >= 0.40:
+    if ts_prob >= 0.35:
         sev = "emergency" if ts_prob >= 0.75 else ("warning" if ts_prob >= 0.50 else "watch")
         alerts.append({
             "id": f"ALT-TS-{int(lat*10)%90:02d}{int(lon*10)%90:02d}-{forecast_hour}H",
@@ -237,7 +244,27 @@ def compute_hyperlocal_nowcast_alerts(
             "lat": round(lat, 4),
             "lon": round(lon, 4),
             "action_protocol": "HIGH-VOLTAGE LIGHTNING RISK: Cease all open-field agricultural activities. Avoid metallic structures and trees. Disconnect high-voltage substation feeds.",
-            "full_description": f"Convective squall winds ({wind_kmh:.1f} km/h) and lightning swarm active in {dist_name} atmospheric sector. Avoid open fields.",
+            "full_description": f"Convective squall winds ({wind_kmh:.1f} km/h) and lightning swarm potential ({ts_prob*100:.1f}%) active in {dist_name}. Avoid open fields.",
+            "source": "DISASTERGUARD ML NOWCAST",
+            "is_official_gov": False
+        })
+
+    # 4. Landslide Assessment
+    if ls_prob >= 0.35:
+        sev = "emergency" if ls_prob >= 0.70 else ("warning" if ls_prob >= 0.50 else "watch")
+        alerts.append({
+            "id": f"ALT-LS-{int(lat*10)%90:02d}{int(lon*10)%90:02d}-{forecast_hour}H",
+            "title": f"{dist_name} Slope Instability & Landslide Hazard",
+            "event_type": "landslide",
+            "hazard_label": "Landslide & Slope Failure Risk",
+            "severity": sev,
+            "probability": round(ls_prob, 2),
+            "lead_time_hours": str(max(1, forecast_hour)),
+            "location_name": f"{dist_name}, {state_name}",
+            "lat": round(lat, 4),
+            "lon": round(lon, 4),
+            "action_protocol": "SLOPE INSTABILITY ALERT: Evacuate steep hillsides and river cutting banks. Monitor geotechnical pore pressure sensors. Clear arterial highway chokepoints.",
+            "full_description": f"Critical slope failure probability ({ls_prob*100:.1f}%) calculated from DEM gradient and soil saturation in {dist_name}.",
             "source": "DISASTERGUARD ML NOWCAST",
             "is_official_gov": False
         })
@@ -250,7 +277,8 @@ def get_unified_alerts(
     lon: Optional[float] = None,
     location_name: Optional[str] = None,
     forecast_hour: int = 2,
-    role: str = "authority"
+    role: str = "authority",
+    coordinate_risks: Optional[Dict[str, float]] = None
 ) -> List[Dict[str, Any]]:
     """
     Returns the unified real disaster alerts:
@@ -294,8 +322,9 @@ def get_unified_alerts(
         nowcast_alerts = compute_hyperlocal_nowcast_alerts(
             lat=lat,
             lon=lon,
-            location_name=location_name or dist_info.get("display_name", "Regional Sector"),
-            forecast_hour=forecast_hour
+            location_name=location_name or dist_name_raw or "Regional Sector",
+            forecast_hour=forecast_hour,
+            coordinate_risks=coordinate_risks
         )
         unified.extend(nowcast_alerts)
 

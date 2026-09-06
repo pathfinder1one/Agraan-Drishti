@@ -24,12 +24,24 @@ import {
   ExposureView, 
   SafeRoutesView 
 } from "@/components/dashboard/DedicatedModuleViews";
+import { AuthModal } from "@/components/dashboard/AuthModal";
+import { SmsAlertDispatchPanel } from "@/components/dashboard/SmsAlertDispatchPanel";
 import { AnimatePresence, motion } from 'framer-motion';
-import { ShieldAlert, Bell, Activity, ExternalLink, Map as MapIcon, Radio, FileText, Cpu, PanelLeftOpen } from 'lucide-react';
+import { ShieldAlert, Bell, Activity, ExternalLink, Map as MapIcon, Radio, FileText, Cpu, PanelLeftOpen, Smartphone } from 'lucide-react';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("disasterguard_user");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeNav, setActiveNav] = useState("dashboard");
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [initialAuthPhone, setInitialAuthPhone] = useState("");
   const [heatmapData, setHeatmapData] = useState([]);
   const [activeLayer, setActiveLayer] = useState("Flash Flood");
   const [forecastHour, setForecastHour] = useState(0);
@@ -40,6 +52,8 @@ export default function App() {
   const [showAutoAlert, setShowAutoAlert] = useState(false);
   const [showNdrfModal, setShowNdrfModal] = useState(false);
   const [showSmsModal, setShowSmsModal] = useState(false);
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [dispatchReceipt, setDispatchReceipt] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [locationName, setLocationName] = useState("Rudraprayag, Uttarakhand");
@@ -406,6 +420,12 @@ export default function App() {
         onNavigate={setActiveNav}
         onTriggerBroadcast={handleSendAlert}
         onTriggerSitrep={() => setShowNdrfModal(true)}
+        currentUser={currentUser}
+        onOpenAuth={() => setShowAuthModal(true)}
+        onLogout={() => {
+          localStorage.removeItem("disasterguard_user");
+          setCurrentUser(null);
+        }}
       />
 
       <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden relative">
@@ -430,7 +450,35 @@ export default function App() {
         )}
 
         <main className="flex-1 min-w-0 min-h-0 h-full overflow-hidden flex flex-col">
-          {activeNav === "live-map" ? (
+          {activeNav === "sms-gateway" ? (
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-5xl mx-auto w-full space-y-5">
+              <div className="p-4 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-950/40 via-panel to-panel-alt flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Smartphone className="w-5 h-5 text-blue-400" />
+                    LOCATION-AWARE EMERGENCY SMS ALERT GATEWAY
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Targeted emergency broadcast dispatching to registered citizens within the active hazard radius.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-600/30 shrink-0 cursor-pointer"
+                >
+                  + Register Subscriber
+                </button>
+              </div>
+
+              <SmsAlertDispatchPanel 
+                locationName={locationName}
+                selectedCell={selectedCell}
+                activeLayer={activeLayer}
+                maxRisks={maxRisks}
+                currentUser={currentUser}
+              />
+            </div>
+          ) : activeNav === "live-map" ? (
             /* Dedicated Full-Screen Live Map Section (from Sih-frontend-map-main structure) */
             <LiveMapFullView 
               heatmapData={heatmapData}
@@ -803,6 +851,22 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* USER AUTHENTICATION & EMERGENCY REGISTRATION MODAL */}
+      <AuthModal 
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialPhone={initialAuthPhone}
+        onSuccess={(user) => {
+          setCurrentUser(user);
+          setActiveNav("dashboard");
+          if (user.latitude && user.longitude) {
+            setMonitoredLocation({ lat: user.latitude, lon: user.longitude });
+            setSelectedCell({ lat: user.latitude, lon: user.longitude });
+            if (user.location_name) setLocationName(user.location_name);
+          }
+        }}
+      />
     </div>
   );
 }

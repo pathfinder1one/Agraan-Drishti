@@ -18,6 +18,10 @@ import {
   X,
   Send,
   CheckCircle2,
+  User,
+  LogOut,
+  Phone,
+  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -40,6 +44,9 @@ interface HeaderProps {
   onNavigate?: (nav: string) => void;
   onTriggerBroadcast?: () => void;
   onTriggerSitrep?: () => void;
+  currentUser?: any;
+  onOpenAuth?: () => void;
+  onLogout?: () => void;
 }
 
 export function Header({ 
@@ -58,7 +65,10 @@ export function Header({
   liveAlerts = [],
   onNavigate,
   onTriggerBroadcast,
-  onTriggerSitrep
+  onTriggerSitrep,
+  currentUser,
+  onOpenAuth,
+  onLogout
 }: HeaderProps) {
   const [darkMode, setDarkMode] = useState(true);
   const [currentLang, setCurrentLang] = useState('en');
@@ -621,6 +631,41 @@ export function Header({
         >
           <Settings2 size={13} /> Command center
         </Button>
+
+        {/* User Authentication & Emergency Subscription Profile */}
+        {currentUser ? (
+          <div className="flex items-center gap-2 pl-2.5 ml-1 border-l border-border-soft">
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs">
+              <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                {currentUser.name ? currentUser.name[0].toUpperCase() : "U"}
+              </div>
+              <div className="hidden xl:block text-left">
+                <p className="font-bold text-ink text-[11px] leading-tight truncate max-w-[120px]">{currentUser.name}</p>
+                <p className="text-[9.5px] text-blue-400 font-mono leading-tight">{currentUser.phone_number}</p>
+              </div>
+            </div>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="p-1.5 rounded-lg text-ink-dim hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                title="Log out from emergency alert session"
+              >
+                <LogOut size={14} />
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 pl-2.5 ml-1 border-l border-border-soft">
+            <button
+              onClick={onOpenAuth}
+              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-600/30 flex items-center gap-1.5 cursor-pointer"
+            >
+              <Phone size={12} />
+              <span className="hidden sm:inline">Register / Login</span>
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 pl-2.5 ml-1 border-l border-border-soft">
           <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold bg-blue-700 text-white">
             N

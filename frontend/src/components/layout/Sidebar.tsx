@@ -11,7 +11,8 @@ import {
   Building2, 
   Route as RouteIcon, 
   FileBarChart,
-  Satellite
+  Satellite,
+  Smartphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "live-map", label: "Live Map", icon: MapIcon },
   { id: "satellite-states", label: "Satellite States", icon: Satellite },
+  { id: "sms-gateway", label: "Emergency SMS", icon: Smartphone },
   { id: "nowcast", label: "Nowcast (0–6h)", icon: Clock3 },
   { id: "outlook", label: "Risk Outlook (1–6 Days)", icon: CalendarRange },
   { id: "alerts", label: "Alerts", icon: TriangleAlert },

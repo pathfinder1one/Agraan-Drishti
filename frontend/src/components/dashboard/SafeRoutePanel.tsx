@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Navigation, ShieldCheck, MapPin, CheckCircle2, Send, AlertTriangle, ArrowRight } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Navigation, ShieldCheck, MapPin, CheckCircle2, Send, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -8,6 +8,22 @@ interface SafeRoutePanelProps {
   monitoredLocation?: { lat: number; lon: number } | null;
   locationName?: string;
   maxRisks?: Record<string, number>;
+}
+
+interface SafeRouteData {
+  status: string;
+  corridor_name: string;
+  distance_km: number;
+  eta_minutes: number;
+  datum_clearance_m: number;
+  clearance_datum_text: string;
+  safety_verdict: string;
+  flash_flood_risk: number;
+  overall_threat_level: number;
+  destination_hub: string;
+  target_staging: string;
+  recommended_highway: string;
+  dispatch_id: string;
 }
 
 const LEGEND: [string, string][] = [
@@ -19,36 +35,62 @@ const LEGEND: [string, string][] = [
 export function SafeRoutePanel({ selectedCell, monitoredLocation, locationName, maxRisks }: SafeRoutePanelProps) {
   const [dispatched, setDispatched] = useState(false);
   const [dispatchNotice, setDispatchNotice] = useState<string | null>(null);
+  const [routeData, setRouteData] = useState<SafeRouteData | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const lat = selectedCell?.lat ?? monitoredLocation?.lat ?? 30.28;
   const lon = selectedCell?.lon ?? monitoredLocation?.lon ?? 78.98;
 
-  // Dynamically compute safe terrain corridor based on real geographic coordinates
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    fetch(`http://localhost:8000/api/safe-route/${lat}/${lon}?forecast_hour=2`)
+      .then((res) => {
+        if (!res.ok) throw new Error("HTTP error " + res.status);
+        return res.json();
+      })
+      .then((data: SafeRouteData) => {
+        if (active && data.status === "success") {
+          setRouteData(data);
+        }
+      })
+      .catch((err) => console.warn("Safe route API fetch:", err))
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [lat, lon]);
+
   const isHighAltitude = lat > 29.5;
   const isCoastal = lat < 22.0 && (lon < 73.8 || lon > 80.0);
 
-  const corridorName = isHighAltitude
-    ? `${locationName || "Highland Ridge"} Elevated Bypass Corridor`
-    : isCoastal
-    ? `${locationName || "Coastal"} Elevated Arterial & Storm Bypass`
-    : `${locationName || "Regional"} Highway Corridor & Elevated Detour`;
+  const corridorName = routeData?.corridor_name || (
+    isHighAltitude
+      ? `${locationName || "Highland Ridge"} Elevated Bypass Corridor`
+      : isCoastal
+      ? `${locationName || "Coastal"} Elevated Arterial & Storm Bypass`
+      : `${locationName || "Regional"} Highway Corridor & Elevated Detour`
+  );
 
-  const dynamicDist = Math.round(22 + ((Math.abs(lat) * 3.7 + Math.abs(lon) * 2.1) % 18));
-  const dynamicMin = Math.round(dynamicDist * 1.25);
-  const distanceKm = `${dynamicDist} km · ${dynamicMin} min`;
+  const distanceKm = routeData
+    ? `${routeData.distance_km} km · ${routeData.eta_minutes} min`
+    : `${Math.round(24)} km · 28 min`;
 
-  const clearanceM = isHighAltitude
-    ? Math.round(180 + ((Math.abs(lat) * 17) % 160))
-    : isCoastal
-    ? Math.round(5 + ((Math.abs(lat) * 3) % 8))
-    : Math.round(18 + ((Math.abs(lat) * 5) % 35));
-  const datumClearance = `+${clearanceM}m above active flood datum`;
+  const datumClearance = routeData?.clearance_datum_text || (
+    isHighAltitude
+      ? `+180m above active flood datum`
+      : isCoastal
+      ? `+8m above active flood datum`
+      : `+25m above active flood datum`
+  );
 
-  const safetyVerdict = `Diverts traffic away from active stormwater discharge channels and waterlogged bottlenecks across ${locationName || "current coordinates"}.`;
+  const safetyVerdict = routeData?.safety_verdict || (
+    `Diverts traffic away from active stormwater discharge channels and waterlogged bottlenecks across ${locationName || "current coordinates"}.`
+  );
 
   const handleDispatch = () => {
     setDispatched(true);
-    setDispatchNotice(`GeoJSON corridor route dispatched to SDRF & GPS navigation feeds.`);
+    setDispatchNotice(`Corridor [${routeData?.dispatch_id || "SDRF-ACTIVE"}] dispatched to SDRF & GPS navigation feeds.`);
     setTimeout(() => {
       setDispatched(false);
       setDispatchNotice(null);
