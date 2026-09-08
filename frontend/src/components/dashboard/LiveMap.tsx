@@ -4,7 +4,16 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.heat'
 import rudraprayagBoundary from '../../data/rudraprayagBoundary.json'
-import indiaDistricts from '../../data/indiaDistricts.json'
+import { API_BASE } from '@/config/api'
+
+// Cast react-leaflet components to bypass React 19 JSX attribute typing mismatches
+const AnyMapContainer = MapContainer as any;
+const AnyTileLayer = TileLayer as any;
+const AnyImageOverlay = ImageOverlay as any;
+const AnyCircleMarker = CircleMarker as any;
+const AnyTooltip = Tooltip as any;
+const AnyGeoJSON = GeoJSON as any;
+const AnyPolyline = Polyline as any;
 
 // Ensure L is on window for plugins if not already
 if (typeof window !== 'undefined') {
@@ -20,7 +29,7 @@ interface LiveMapProps {
   onCellClick: (lat: number, lon: number) => void;
   selectedCell?: { lat: number; lon: number } | null;
   monitoredLocation?: { lat: number; lon: number } | null;
-  onMapReady?: (map: L.Map) => void;
+  onMapReady?: (map: any) => void;
   satelliteRevision?: number;
 }
 
@@ -77,62 +86,73 @@ function HeatmapLayer({ data, activeLayer }: { data: any[], activeLayer: string 
 // NATIONWIDE DISTRICT & STATE BOUNDARIES (White Dashed Grids)
 // ──────────────────────────────────────────────
 function NationwideBoundariesLayer({ onCellClick }: { onCellClick: (lat: number, lon: number) => void }) {
+  const [districtsData, setDistrictsData] = useState<any>(null);
+
+  useEffect(() => {
+    // Lazy-load the 1.72 MB GeoJSON via dynamic import so it is split into a separate bundle chunk
+    import('../../data/indiaDistricts.json')
+      .then((m) => setDistrictsData(m.default || m))
+      .catch((err) => console.error("Failed to load district boundaries:", err));
+  }, []);
+
   return (
     <>
       {/* All 594 Districts across India (White Dashed District Grids) */}
-      <GeoJSON
-        data={indiaDistricts as any}
-        style={{
-          color: "#e2e8f0",
-          weight: 1.2,
-          opacity: 0.80,
-          fillColor: "#ef4444",
-          fillOpacity: 0.015,
-          dashArray: "5, 5",
-        }}
-        onEachFeature={(feature, layer) => {
-          const district = feature.properties?.district || "District";
-          const state = feature.properties?.state || "India";
-          
-          layer.bindTooltip(
-            `<div style="font-family: inherit; font-size: 11px; padding: 3px 6px; line-height: 1.2; color: #0f172a;">
-              <strong style="font-size: 11.5px; display: block; color: #1e293b;">${district}</strong>
-              <span style="font-size: 9.5px; color: #64748b;">${state}</span>
-            </div>`,
-            { direction: "top", sticky: true }
-          );
+      {districtsData && (
+        <AnyGeoJSON
+          data={districtsData}
+          style={{
+            color: "#e2e8f0",
+            weight: 1.2,
+            opacity: 0.80,
+            fillColor: "#ef4444",
+            fillOpacity: 0.015,
+            dashArray: "5, 5",
+          }}
+          onEachFeature={(feature: any, layer: any) => {
+            const district = feature.properties?.district || "District";
+            const state = feature.properties?.state || "India";
+            
+            layer.bindTooltip(
+              `<div style="font-family: inherit; font-size: 11px; padding: 3px 6px; line-height: 1.2; color: #0f172a;">
+                <strong style="font-size: 11.5px; display: block; color: #1e293b;">${district}</strong>
+                <span style="font-size: 9.5px; color: #64748b;">${state}</span>
+              </div>`,
+              { direction: "top", sticky: true }
+            );
 
-          layer.on({
-            click: (e: any) => {
-              if (e.latlng) {
-                onCellClick(
-                  parseFloat(e.latlng.lat.toFixed(2)),
-                  parseFloat(e.latlng.lng.toFixed(2))
-                );
-              }
-            },
-            mouseover: (e: any) => {
-              const l = e.target;
-              l.setStyle({
-                weight: 2.4,
-                color: "#38bdf8",
-                fillOpacity: 0.08,
-              });
-            },
-            mouseout: (e: any) => {
-              const l = e.target;
-              l.setStyle({
-                weight: 1.2,
-                color: "#e2e8f0",
-                fillOpacity: 0.015,
-              });
-            },
-          });
-        }}
-      />
+            layer.on({
+              click: (e: any) => {
+                if (e.latlng) {
+                  onCellClick(
+                    parseFloat(e.latlng.lat.toFixed(2)),
+                    parseFloat(e.latlng.lng.toFixed(2))
+                  );
+                }
+              },
+              mouseover: (e: any) => {
+                const l = e.target;
+                l.setStyle({
+                  weight: 2.4,
+                  color: "#38bdf8",
+                  fillOpacity: 0.08,
+                });
+              },
+              mouseout: (e: any) => {
+                const l = e.target;
+                l.setStyle({
+                  weight: 1.2,
+                  color: "#e2e8f0",
+                  fillOpacity: 0.015,
+                });
+              },
+            });
+          }}
+        />
+      )}
 
       {/* 3. Rudraprayag High-Resolution Disaster Epicenter Outline */}
-      <GeoJSON
+      <AnyGeoJSON
         data={rudraprayagBoundary as any}
         style={{
           color: "#ffffff",
@@ -142,7 +162,7 @@ function NationwideBoundariesLayer({ onCellClick }: { onCellClick: (lat: number,
           fillOpacity: 0.04,
           dashArray: "7, 5",
         }}
-        onEachFeature={(_feature, layer) => {
+        onEachFeature={(_feature: any, layer: any) => {
           layer.bindTooltip("Rudraprayag High-Altitude Catchment Zone", {
             direction: "top",
             sticky: true,
@@ -200,7 +220,7 @@ function RiverLayer() {
           lineJoin: "round",
         }}
       />
-      <Polyline
+      <AnyPolyline
         positions={MANDAKINI_COORDS}
         pathOptions={{
           color: "#00f0ff",
@@ -210,13 +230,13 @@ function RiverLayer() {
           lineJoin: "round",
         }}
       >
-        <Tooltip direction="right" sticky>
+        <AnyTooltip direction="right" sticky>
           Mandakini River (High Vulnerability Corridor)
-        </Tooltip>
-      </Polyline>
+        </AnyTooltip>
+      </AnyPolyline>
 
       {/* Alaknanda River Glow */}
-      <Polyline
+      <AnyPolyline
         positions={ALAKNANDA_COORDS}
         pathOptions={{
           color: "#0284c7",
@@ -226,7 +246,7 @@ function RiverLayer() {
           lineJoin: "round",
         }}
       />
-      <Polyline
+      <AnyPolyline
         positions={ALAKNANDA_COORDS}
         pathOptions={{
           color: "#38bdf8",
@@ -236,10 +256,10 @@ function RiverLayer() {
           lineJoin: "round",
         }}
       >
-        <Tooltip direction="right" sticky>
+        <AnyTooltip direction="right" sticky>
           Alaknanda River (Confluence Zone)
-        </Tooltip>
-      </Polyline>
+        </AnyTooltip>
+      </AnyPolyline>
     </>
   )
 }
@@ -272,7 +292,7 @@ function BackendCitiesLayer({
   const [locations, setLocations] = useState<any[]>([])
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/monitored-locations")
+    fetch(`${API_BASE}/api/monitored-locations`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setLocations(data)
@@ -283,13 +303,13 @@ function BackendCitiesLayer({
   return (
     <>
       {locations.map((loc) => {
-        const color = getRiskColor(loc.level);
-        const isCritical = loc.level === "extreme" || loc.level === "high";
+        const isCritical = loc.level === "extreme" || loc.level === "high"
+        const color = getRiskColor(loc.level)
 
         return (
           <Fragment key={loc.id}>
             {loc.level === "extreme" && (
-              <CircleMarker
+              <AnyCircleMarker
                 center={[loc.lat, loc.lon]}
                 radius={16}
                 pathOptions={{
@@ -301,7 +321,7 @@ function BackendCitiesLayer({
                 }}
               />
             )}
-            <CircleMarker
+            <AnyCircleMarker
               center={[loc.lat, loc.lon]}
               radius={isCritical ? 9 : 6}
               pathOptions={{
@@ -316,16 +336,16 @@ function BackendCitiesLayer({
             >
               {/* Permanent Black Badge for actively monitored city or primary epicenter */}
               {((monitoredLocation && Math.hypot(loc.lat - monitoredLocation.lat, loc.lon - monitoredLocation.lon) < 0.25) || (!monitoredLocation && loc.id === "rudraprayag")) ? (
-                <Tooltip
+                <AnyTooltip
                   permanent
                   direction="top"
                   offset={[0, -12]}
                   className="custom-district-badge"
                 >
                   {loc.name}
-                </Tooltip>
+                </AnyTooltip>
               ) : (
-                <Tooltip direction="top" offset={[0, -8]} opacity={0.9}>
+                <AnyTooltip direction="top" offset={[0, -8]} opacity={0.9}>
                   <div className="font-sans text-[11px] leading-tight">
                     <span className="font-bold text-slate-900">{loc.name}</span>
                     <span className="text-slate-500 block text-[9.5px]">{loc.state}</span>
@@ -333,7 +353,7 @@ function BackendCitiesLayer({
                       Risk: {loc.overall_risk ? Math.round(loc.overall_risk * 100) : loc.flash_flood}%
                     </span>
                   </div>
-                </Tooltip>
+                </AnyTooltip>
               )}
 
               {/* Clickable Popup with Live Backend Predictions */}
@@ -373,13 +393,13 @@ function BackendCitiesLayer({
 
                   <button
                     onClick={() => onCellClick(loc.lat, loc.lon)}
-                    className="w-full py-1 px-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold transition-colors"
+                    className="w-full py-1.5 px-2.5 bg-accent hover:bg-accent/90 text-accent-contrast rounded-lg text-[11px] font-bold transition-all shadow-sm cursor-pointer"
                   >
                     Sync Intelligence & XAI
                   </button>
                 </div>
               </Popup>
-            </CircleMarker>
+            </AnyCircleMarker>
           </Fragment>
         );
       })}
@@ -389,7 +409,7 @@ function BackendCitiesLayer({
 
 // ──────────────────────────────────────────────
 // IOT SENSOR STATIONS
-function IoTSensorLayer({ monitoredLocation }: { monitoredLocation?: { lat: number; lon: number } }) {
+function IoTSensorLayer({ monitoredLocation }: { monitoredLocation?: { lat: number; lon: number } | null }) {
   const map = useMap()
   const iotLayerRef = useRef<any>(null)
 
@@ -462,7 +482,7 @@ function ExactLocationMarker({ location, onCellClick }: { location?: { lat: numb
   return (
     <>
       {/* Outer Animated Radar Pulse Wave */}
-      <CircleMarker
+      <AnyCircleMarker
         center={[location.lat, location.lon]}
         radius={32}
         pathOptions={{
@@ -474,7 +494,7 @@ function ExactLocationMarker({ location, onCellClick }: { location?: { lat: numb
         }}
       />
       {/* Mid Glowing Halo */}
-      <CircleMarker
+      <AnyCircleMarker
         center={[location.lat, location.lon]}
         radius={18}
         pathOptions={{
@@ -485,7 +505,7 @@ function ExactLocationMarker({ location, onCellClick }: { location?: { lat: numb
         }}
       />
       {/* Inner Target Core Marker */}
-      <CircleMarker
+      <AnyCircleMarker
         center={[location.lat, location.lon]}
         radius={8}
         pathOptions={{
@@ -498,15 +518,15 @@ function ExactLocationMarker({ location, onCellClick }: { location?: { lat: numb
           click: () => onCellClick?.(location.lat, location.lon),
         }}
       >
-        <Tooltip
+        <AnyTooltip
           permanent
           direction="top"
           offset={[0, -14]}
           className="custom-district-badge"
         >
           📍 GPS Target ({location.lat.toFixed(5)}°N, {location.lon.toFixed(5)}°E)
-        </Tooltip>
-      </CircleMarker>
+        </AnyTooltip>
+      </AnyCircleMarker>
     </>
   );
 }
@@ -567,14 +587,14 @@ export function LiveMap({
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
-      <MapContainer 
+      <AnyMapContainer 
         center={center} 
         zoom={8} 
         style={{ height: '100%', width: '100%', background: '#0b0f18', zIndex: 0 }}
         zoomControl={false}
       >
         {/* Base Tile Layer (Dynamic Swap on Mode Change) */}
-        <TileLayer
+        <AnyTileLayer
           key={tileUrl}
           url={tileUrl}
           attribution='&copy; OpenStreetMap contributors, Esri, Maxar'
@@ -582,16 +602,16 @@ export function LiveMap({
         />
 
         {/* Crisp Administrative Reference Boundaries & Places (State, District & Town labels everywhere in India) */}
-        <TileLayer
+        <AnyTileLayer
           url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
           opacity={0.6}
           maxZoom={18}
         />
 
         {/* INSAT-3DR Real Satellite Cloud Field */}
-        <ImageOverlay
+        <AnyImageOverlay
           key={`sat-overlay-${satelliteRevision}`}
-          url={`http://localhost:8000/api/satellite/image?rev=${satelliteRevision}`}
+          url={`${API_BASE}/api/satellite/image?rev=${satelliteRevision}`}
           bounds={[[6.0, 66.0], [37.0, 97.0]]}
           opacity={0.35}
           zIndex={10}
@@ -613,17 +633,17 @@ export function LiveMap({
         <BackendCitiesLayer onCellClick={onCellClick} monitoredLocation={monitoredLocation} />
 
         {/* Live Target Marker on Exact Coordinates */}
-        <ExactLocationMarker location={monitoredLocation} onCellClick={onCellClick} />
+        <ExactLocationMarker location={monitoredLocation || undefined} onCellClick={onCellClick} />
 
         <MapUpdater center={center} />
         <ClickHandler onCellClick={onCellClick} />
         {onMapReady && <MapReadyNotifier onMapReady={onMapReady} />}
-      </MapContainer>
+      </AnyMapContainer>
     </div>
   )
 }
 
-function MapReadyNotifier({ onMapReady }: { onMapReady: (map: L.Map) => void }) {
+function MapReadyNotifier({ onMapReady }: { onMapReady: (map: any) => void }) {
   const map = useMap()
   useEffect(() => {
     if (map && onMapReady) {

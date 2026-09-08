@@ -3,7 +3,6 @@ import {
   Users, 
   AlertTriangle, 
   Home, 
-  Building2, 
   Landmark, 
   Clock, 
   Mountain, 
@@ -15,10 +14,12 @@ import {
   X,
   Send,
   Loader2,
-  Sparkles
+  Sparkles,
+  ShieldCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { BentoCard, CardHeader, CardBody } from "@/components/ui/card";
+import { apiFetch } from "@/config/api";
 
 interface ExposureOverviewPanelProps {
   selectedCell?: { lat: number; lon: number } | null;
@@ -29,8 +30,8 @@ interface ExposureOverviewPanelProps {
 
 export function ExposureOverviewPanel({ 
   selectedCell, 
-  monitoredLocation,
-  locationName,
+  monitoredLocation, 
+  locationName, 
   forecastHour = 2 
 }: ExposureOverviewPanelProps) {
   const [intel, setIntel] = useState<any>(null);
@@ -43,12 +44,12 @@ export function ExposureOverviewPanel({
   const lon = selectedCell?.lon ?? monitoredLocation?.lon ?? 79.06;
 
   useEffect(() => {
-    fetch(`http://localhost:8000/api/hazard-intelligence?lat=${lat}&lon=${lon}&forecast_hour=${forecastHour}`)
+    apiFetch(`/api/hazard-intelligence?lat=${lat}&lon=${lon}&forecast_hour=${forecastHour}`)
       .then(res => res.json())
       .then(data => setIntel(data))
       .catch(() => {});
 
-    fetch(`http://localhost:8000/api/vulnerable-registry/${lat.toFixed(2)}/${lon.toFixed(2)}`)
+    apiFetch(`/api/vulnerable-registry/${lat.toFixed(2)}/${lon.toFixed(2)}`)
       .then(res => res.json())
       .then(data => setRegistryData(data))
       .catch(() => {});
@@ -57,7 +58,7 @@ export function ExposureOverviewPanel({
   const handleDispatchCaretakers = async () => {
     setIsDispatching(true);
     try {
-      const res = await fetch("http://localhost:8000/api/vulnerable-registry/dispatch", {
+      const res = await apiFetch("/api/vulnerable-registry/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lat, lon, ward: registryData?.ward })
@@ -95,57 +96,62 @@ export function ExposureOverviewPanel({
   };
 
   const isCritical = vuln.rating === "CRITICAL";
-  const ratingColor = isCritical ? "text-red-400 bg-red-500/10 border-red-500/30" : (vuln.rating === "HIGH" ? "text-amber-400 bg-amber-500/10 border-amber-500/30" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/30");
+  const ratingColor = isCritical 
+    ? "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/40 border-red-300 dark:border-red-800" 
+    : (vuln.rating === "HIGH" 
+      ? "text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800" 
+      : "text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800");
 
   const totalVulnerable = registryData?.total_vulnerable_registered || 48;
   const ashaCount = registryData?.asha_workers_active || 12;
 
   return (
     <>
-      <Card className="flex flex-col h-full min-w-0">
+      <BentoCard glowBorder="amber" className="flex flex-col h-full min-w-0">
         <CardHeader
           icon={Users}
-          title="Vulnerability & Exposure"
+          title="Vulnerability & Human Exposure"
+          subtitle="Socio-Demographic Census & Inundation Overlay"
           right={
-            <span className="text-[10px] text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+            <span className="text-[10px] text-accent font-mono bg-secondary px-2 py-0.5 rounded border border-border font-bold">
               {village.granularity}
             </span>
           }
         />
         <CardBody className="flex-1 space-y-2.5 flex flex-col justify-between p-3.5">
           {/* Village / Ward Pinpoint Banner */}
-          <div className="p-2.5 rounded-lg bg-panel-alt border border-border">
+          <div className="p-2.5 rounded-lg bg-panel-alt/70 border border-border/70 shadow-2xs">
             <div className="flex items-center justify-between text-[11px] mb-0.5">
               <span className="font-bold text-ink truncate">{village.village}</span>
-              <span className="text-ink-dim flex items-center gap-1">
-                <Mountain size={11} /> {village.elevation_m}m
+              <span className="text-ink-dim flex items-center gap-1 font-mono text-[10px]">
+                <Mountain size={12} className="text-accent" /> {village.elevation_m}m Elevation
               </span>
             </div>
             <div className="text-[10px] text-ink-faint truncate">{village.district}</div>
           </div>
 
           {/* Vulnerability-Weighted Human Impact Index Meter */}
-          <div className="p-2.5 rounded-lg bg-panel-alt border border-border space-y-1.5">
+          <div className="p-2.5 rounded-lg bg-panel-alt/70 border border-border/70 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-ink">
-                <AlertTriangle size={12} className={isCritical ? "text-red-400 animate-pulse" : "text-amber-400"} />
+                <AlertTriangle size={13} className={isCritical ? "text-destructive animate-pulse" : "text-amber-600 dark:text-amber-400"} />
                 <span>Vulnerability-Weighted Index:</span>
               </div>
-              <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded border ${ratingColor}`}>
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded border ${ratingColor}`}>
                 {vuln.rating} ({(vuln.score * 100).toFixed(0)}%)
               </span>
             </div>
 
             {/* Progress bar */}
-            <div className="w-full h-1.5 rounded-full overflow-hidden bg-border-soft">
+            <div className="w-full h-1.5 rounded-full overflow-hidden bg-border/60">
               <motion.div
-                className={`h-full rounded-full ${isCritical ? "bg-gradient-to-r from-amber-500 to-red-500" : "bg-gradient-to-r from-emerald-500 to-amber-500"}`}
+                className={`h-full rounded-full ${isCritical ? "bg-gradient-to-r from-amber-500 to-red-600" : "bg-gradient-to-r from-emerald-600 to-amber-500"}`}
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(100, vuln.score * 100)}%` }}
                 transition={{ duration: 0.8 }}
               />
             </div>
-            <div className="flex justify-between text-[9px] text-ink-faint">
+            <div className="flex justify-between text-[9.5px] font-medium text-ink-faint">
               <span>Terrain Runoff Slope: {(vuln.topographic_slope * 100).toFixed(0)}%</span>
               <span>Valley Basin Accumulation: High</span>
             </div>
@@ -153,64 +159,64 @@ export function ExposureOverviewPanel({
 
           {/* 4 Metric Boxes */}
           <div className="grid grid-cols-2 gap-2 text-[11px]">
-            <div className="p-2 rounded bg-panel-alt border border-border">
-              <div className="flex items-center gap-1 text-ink-dim text-[10px] mb-0.5">
-                <Users size={12} className="text-blue-400" /> Pop. at Risk
+            <div className="p-2.5 rounded-lg bg-panel-alt/70 border border-border/70 shadow-2xs">
+              <div className="flex items-center gap-1.5 text-ink-dim text-[10px] font-medium uppercase tracking-wider mb-0.5">
+                <Users size={12} className="text-accent" /> Pop. at Risk
               </div>
-              <div className="text-[13px] font-bold text-ink font-mono">
+              <div className="text-[14px] font-bold text-ink font-mono">
                 {vuln.exposed_population.toLocaleString()}
               </div>
             </div>
 
-            <div className="p-2 rounded bg-panel-alt border border-border">
-              <div className="flex items-center gap-1 text-ink-dim text-[10px] mb-0.5">
-                <Home size={12} className="text-amber-400" /> Kaccha Dwellings
+            <div className="p-2.5 rounded-lg bg-panel-alt/70 border border-border/70 shadow-2xs">
+              <div className="flex items-center gap-1.5 text-ink-dim text-[10px] font-medium uppercase tracking-wider mb-0.5">
+                <Home size={12} className="text-amber-600 dark:text-amber-400" /> Kaccha Dwellings
               </div>
-              <div className="text-[13px] font-bold text-ink font-mono">
+              <div className="text-[14px] font-bold text-ink font-mono">
                 {vuln.kaccha_dwellings.toLocaleString()}
               </div>
             </div>
 
-            <div className="p-2 rounded bg-panel-alt border border-border">
-              <div className="flex items-center gap-1 text-ink-dim text-[10px] mb-0.5">
-                <Landmark size={12} className="text-red-400" /> Critical Bridges
+            <div className="p-2.5 rounded-lg bg-panel-alt/70 border border-border/70 shadow-2xs">
+              <div className="flex items-center gap-1.5 text-ink-dim text-[10px] font-medium uppercase tracking-wider mb-0.5">
+                <Landmark size={12} className="text-destructive" /> Critical Bridges
               </div>
-              <div className="text-[13px] font-bold text-ink font-mono">
+              <div className="text-[14px] font-bold text-ink font-mono">
                 {vuln.bridges_at_risk} Cut-off Points
               </div>
             </div>
 
-            <div className="p-2 rounded bg-panel-alt border border-border">
-              <div className="flex items-center gap-1 text-ink-dim text-[10px] mb-0.5">
-                <Clock size={12} className="text-emerald-400" /> Evac Window
+            <div className="p-2.5 rounded-lg bg-panel-alt/70 border border-border/70 shadow-2xs">
+              <div className="flex items-center gap-1.5 text-ink-dim text-[10px] font-medium uppercase tracking-wider mb-0.5">
+                <Clock size={12} className="text-accent" /> Evac Window
               </div>
-              <div className="text-[13px] font-bold text-amber-400 font-mono">
+              <div className="text-[14px] font-bold text-amber-600 dark:text-amber-400 font-mono">
                 ~{vuln.evacuation_window_hours} Hours
               </div>
             </div>
           </div>
 
-          {/* Community Vulnerable Population Registry (Mahi's ASHA/Anganwadi Relay) */}
+          {/* Community Vulnerable Population Registry */}
           <button
             onClick={() => setShowRegistryModal(true)}
-            className="w-full p-2 rounded-lg bg-gradient-to-r from-blue-950/40 via-purple-950/30 to-panel-alt border border-purple-500/30 hover:border-purple-500/60 text-left transition-all shadow-sm group"
+            className="w-full p-2.5 rounded-lg bg-secondary/70 hover:bg-secondary border border-border hover:border-accent/40 text-left transition-all shadow-2xs group cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-purple-300">
-                <HeartHandshake size={13} className="text-purple-400 group-hover:scale-110 transition-transform" />
+              <div className="flex items-center gap-1.5 text-[11.5px] font-bold text-ink">
+                <HeartHandshake size={14} className="text-accent group-hover:scale-110 transition-transform" />
                 <span>Vulnerable Population Registry</span>
               </div>
-              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-panel text-accent border border-border font-bold">
                 {ashaCount} ASHA Assigned
               </span>
             </div>
             <div className="flex items-center justify-between mt-1 text-[10px] text-ink-dim">
-              <span>{totalVulnerable} Deaf / Mobility / Elderly Individuals</span>
-              <span className="text-blue-400 group-hover:translate-x-0.5 transition-transform font-bold">Inspect Roster ➔</span>
+              <span>{totalVulnerable} Mobility / Deaf / Elderly Citizens</span>
+              <span className="text-accent group-hover:translate-x-0.5 transition-transform font-bold">Inspect Roster ➔</span>
             </div>
           </button>
         </CardBody>
-      </Card>
+      </BentoCard>
 
       {/* Community Vulnerable Population Registry Modal */}
       <AnimatePresence>

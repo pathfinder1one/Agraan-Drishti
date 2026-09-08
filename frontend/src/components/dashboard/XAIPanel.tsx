@@ -1,12 +1,12 @@
-import { Card, CardHeader } from "@/components/ui/card";
-import { Search } from "lucide-react";
+import { BentoCard, CardHeader } from "@/components/ui/card";
+import { Sparkles, HelpCircle } from "lucide-react";
 
 const SIGNAL_CONFIG: Record<string, any> = {
-  cape:         { label: 'CAPE',           unit: 'J/kg',    max: 4000, color: '#ef4444' },
-  cin:          { label: 'CIN',            unit: 'J/kg',    max: 200,  color: '#f97316' },
-  iwv_rate:     { label: 'IWV Rate',       unit: 'kg/m²/6h', max: 20, color: '#3b82f6' },
-  convergence:  { label: 'Convergence',    unit: '×10⁻⁵/s', max: 5,  color: '#06b6d4' },
-  wind_shear:   { label: 'Wind Shear',     unit: 'm/s',     max: 30, color: '#8b5cf6' },
+  cape:         { label: 'CAPE (Convective Energy)', unit: 'J/kg',    max: 4000, color: '#c92a2a' },
+  cin:          { label: 'CIN (Convective Inhibition)', unit: 'J/kg', max: 200,  color: '#f5b35a' },
+  iwv_rate:     { label: 'IWV Rate (Moisture)',       unit: 'kg/m²/6h', max: 20, color: '#246b38' },
+  convergence:  { label: 'Wind Convergence',          unit: '×10⁻⁵/s', max: 5,  color: '#246b38' },
+  wind_shear:   { label: 'Deep Layer Wind Shear',     unit: 'm/s',     max: 30, color: '#f5b35a' },
 }
 
 function GaugeBar({ name, signal }: { name: string, signal: any }) {
@@ -18,21 +18,21 @@ function GaugeBar({ name, signal }: { name: string, signal: any }) {
   const isHigh = pct > 60
 
   return (
-    <div className="mb-3">
+    <div className="mb-2.5">
       <div className="flex justify-between text-[11px] mb-1">
         <span className="font-semibold text-ink-dim">{config.label}</span>
-        <span style={{ color: isHigh ? '#ef4444' : '#94a3b8' }}>
+        <span className="font-mono font-bold" style={{ color: isHigh ? '#c92a2a' : '#246b38' }}>
           {name === 'convergence' ? (value * 1e5).toFixed(1) : value.toFixed(0)}
-          <span className="text-[10px] text-ink-faint"> {config.unit}</span>
+          <span className="text-[10px] text-ink-faint font-normal"> {config.unit}</span>
         </span>
       </div>
-      <div className="h-1.5 rounded-full bg-panel-alt overflow-hidden">
+      <div className="h-1.5 rounded-full bg-border/60 overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
             width: `${pct}%`,
             background: isHigh
-              ? `linear-gradient(90deg, ${config.color}, #ef4444)`
+              ? `linear-gradient(90deg, #f5b35a, #c92a2a)`
               : config.color,
           }}
         />
@@ -55,47 +55,50 @@ export function XAIPanel({ data, selectedCell, monitoredLocation, locationName }
     : (locationName || `${activeLoc.lat.toFixed(2)}°N, ${activeLoc.lon.toFixed(2)}°E`);
 
   return (
-    <Card>
+    <BentoCard glowBorder="none">
       <CardHeader 
-        icon={Search} 
-        title={`Why This Risk? (${locTitle})`} 
+        icon={Sparkles} 
+        title="Explainable AI (XAI) Attribution" 
+        subtitle={`Feature Importance & Physics Audit (${locTitle})`}
       />
-      <div className="p-4">
+      <div className="p-3.5 space-y-3">
         {/* Signal gauges */}
-        {data?.signals && Object.entries(data.signals).map(([name, signal]) => (
-          <GaugeBar key={name} name={name} signal={signal} />
-        ))}
+        <div>
+          {data?.signals && Object.entries(data.signals).map(([name, signal]) => (
+            <GaugeBar key={name} name={name} signal={signal} />
+          ))}
+        </div>
 
-        {/* Confidence */}
-        {data?.confidence && (
-          <div className="flex justify-between text-[12px] mt-4">
-            <span className="text-ink-dim">Confidence</span>
-            <span style={{
-              fontWeight: 700,
-              color: data.confidence > 0.8 ? '#22c55e' : data.confidence > 0.6 ? '#eab308' : '#ef4444'
-            }}>
-              {(data.confidence * 100).toFixed(0)}%
-            </span>
-          </div>
-        )}
+        {/* Confidence & Data Quality */}
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/60 text-xs">
+          {data?.confidence && (
+            <div className="p-2 rounded-md bg-panel-alt/60 border border-border/60">
+              <span className="text-[10px] uppercase font-bold text-ink-faint block">Model Confidence</span>
+              <span className="font-mono font-bold text-ink text-sm">
+                {(data.confidence * 100).toFixed(0)}%
+              </span>
+            </div>
+          )}
 
-        {/* Data quality */}
-        {data?.data_quality && (
-          <div className="flex justify-between text-[12px] mt-1.5">
-            <span className="text-ink-dim">Data Quality</span>
-            <span className="font-semibold text-emerald-500">
-              {data.data_quality === 'good' ? '✓ Good' : '⚠ Degraded'}
-            </span>
-          </div>
-        )}
+          {data?.data_quality && (
+            <div className="p-2 rounded-md bg-panel-alt/60 border border-border/60">
+              <span className="text-[10px] uppercase font-bold text-ink-faint block">Input Telemetry</span>
+              <span className="font-bold text-accent text-sm flex items-center gap-1 mt-0.5">
+                {data.data_quality === 'good' ? '✓ High Quality' : '⚠ Calibrated Proxy'}
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Explanation sentence */}
         {data?.explanation && (
-          <div className="mt-4 p-3 rounded-lg bg-panel-alt border border-border-soft text-[12px] leading-relaxed">
-            💡 {data.explanation}
+          <div className="p-2.5 rounded-lg bg-secondary/60 border border-border text-[11.5px] leading-relaxed text-ink flex items-start gap-2 shadow-2xs">
+            <HelpCircle size={15} className="text-accent shrink-0 mt-0.5" />
+            <span>{data.explanation}</span>
           </div>
         )}
       </div>
-    </Card>
+    </BentoCard>
   )
 }
+

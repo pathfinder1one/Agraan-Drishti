@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Clock3, ChevronLeft, ChevronRight, Activity } from "lucide-react";
-import { Card, CardHeader } from "@/components/ui/card";
+import { BentoCard, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface NowcastTimelineProps {
   forecastHour: number;
@@ -42,26 +43,27 @@ export function NowcastTimeline({ forecastHour, onHourSelect, maxRisks }: Nowcas
   });
 
   return (
-    <Card>
+    <BentoCard glowBorder="none">
       <CardHeader
         icon={Clock3}
-        title="Nowcast timeline (0–6h Lead Time)"
+        title="Nowcast Temporal Timeline"
+        subtitle="0–6 Hour Continuous Radar & Precipitation Nowcast"
         right={
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-ink-faint flex items-center gap-1">
-              <Activity size={10} className="text-accent animate-pulse" /> Live Nowcast Window
+            <span className="text-[10px] font-mono text-ink-faint flex items-center gap-1.5 px-2 py-0.5 rounded bg-secondary border border-border">
+              <Activity size={11} className="text-accent animate-pulse" /> Live Nowcast Window
             </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => scroll(-1)}
-                className="w-6 h-6 rounded-md flex items-center justify-center bg-panel-alt border border-border hover:text-ink text-ink-dim cursor-pointer"
+                className="w-6 h-6 rounded-md flex items-center justify-center bg-panel-alt border border-border hover:text-ink text-ink-dim cursor-pointer transition-colors shadow-2xs"
                 title="Scroll Left"
               >
                 <ChevronLeft size={13} />
               </button>
               <button
                 onClick={() => scroll(1)}
-                className="w-6 h-6 rounded-md flex items-center justify-center bg-panel-alt border border-border hover:text-ink text-ink-dim cursor-pointer"
+                className="w-6 h-6 rounded-md flex items-center justify-center bg-panel-alt border border-border hover:text-ink text-ink-dim cursor-pointer transition-colors shadow-2xs"
                 title="Scroll Right"
               >
                 <ChevronRight size={13} />
@@ -70,42 +72,46 @@ export function NowcastTimeline({ forecastHour, onHourSelect, maxRisks }: Nowcas
           </div>
         }
       />
-      <div ref={trackRef} className="flex gap-3 p-3.5 overflow-x-auto scroll-smooth">
+      <div ref={trackRef} className="flex gap-2.5 p-3.5 overflow-x-auto scroll-smooth">
         {dynamicFrames.map((n) => {
           const isSelected = forecastHour === n.hour;
-          const color = n.intensity >= 0.75 ? '#ef4444' : n.intensity >= 0.50 ? '#f97316' : n.intensity >= 0.25 ? '#eab308' : '#22c55e';
+          const color = n.intensity >= 0.70 ? '#c92a2a' : n.intensity >= 0.45 ? '#f5b35a' : '#246b38';
 
           return (
-            <button
+            <motion.button
               key={n.label}
+              whileHover={{ y: -2, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onHourSelect(n.hour)}
               className={cn(
                 "shrink-0 w-32 rounded-lg overflow-hidden text-left transition-all border cursor-pointer",
-                isSelected ? "border-accent bg-[#13223f] shadow-md shadow-accent/20 scale-[1.02]" : "border-border bg-panel-alt hover:border-border-soft"
+                isSelected 
+                  ? "border-accent bg-secondary ring-2 ring-accent/30 shadow-xs" 
+                  : "border-border/70 bg-panel-alt/70 hover:border-border hover:bg-panel-alt shadow-2xs"
               )}
             >
               <div
-                className="h-16 relative"
+                className="h-14 relative overflow-hidden"
                 style={{
-                  backgroundImage: `radial-gradient(circle at 50% 55%, ${color} 0%, #f59e0b 32%, #16a34a 65%, transparent 85%)`,
-                  opacity: Math.max(0.35, n.intensity),
+                  backgroundImage: `radial-gradient(circle at 50% 55%, ${color} 0%, #f5b35a 40%, #246b38 75%, transparent 95%)`,
+                  opacity: Math.max(0.4, n.intensity),
                 }}
               >
-                <span className="absolute top-1 right-1 text-[9px] font-mono px-1 rounded bg-black/60 text-white">
+                <span className="absolute top-1.5 right-1.5 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/70 text-white backdrop-blur-xs">
                   {n.riskPercent}%
                 </span>
               </div>
-              <div className="px-2.5 py-1.5 border-t border-border/40">
-                <div className="text-[11.5px] font-semibold text-ink flex items-center justify-between">
+              <div className="px-2.5 py-2 border-t border-border/50 bg-panel">
+                <div className="text-[11px] font-bold text-ink flex items-center justify-between">
                   <span>{n.label}</span>
                   {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />}
                 </div>
-                <div className="text-[10px] font-mono text-ink-faint">{n.time}</div>
+                <div className="text-[10px] font-mono text-ink-faint mt-0.5">{n.time}</div>
               </div>
-            </button>
+            </motion.button>
           );
         })}
       </div>
-    </Card>
+    </BentoCard>
   );
 }

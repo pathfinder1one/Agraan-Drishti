@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { API_BASE } from "@/config/api";
 import { 
   Building2, 
   Cpu, 
@@ -22,7 +24,7 @@ import {
   Play,
   Activity
 } from "lucide-react";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { BentoCard, Card, CardHeader, CardBody } from "@/components/ui/card";
 
 interface InterlockTarget {
   id: string;
@@ -59,6 +61,16 @@ interface InfrastructureCommandViewProps {
   forecastHour?: number;
 }
 
+/* ─── Animation presets ─── */
+const staggerContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07 } },
+};
+const fadeSlideUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
+};
+
 export function InfrastructureCommandView({
   selectedCell,
   monitoredLocation,
@@ -86,7 +98,7 @@ export function InfrastructureCommandView({
 
   const fetchData = () => {
     setLoading(true);
-    fetch(`http://localhost:8000/api/infrastructure/m2m-interlocks/${lat.toFixed(4)}/${lon.toFixed(4)}?forecast_hour=${forecastHour}`)
+    fetch(`${API_BASE}/api/infrastructure/m2m-interlocks/${lat.toFixed(4)}/${lon.toFixed(4)}?forecast_hour=${forecastHour}`)
       .then(res => res.json())
       .then(d => {
         setData(d);
@@ -105,9 +117,13 @@ export function InfrastructureCommandView({
   const handleToggleOverride = async () => {
     setOverrideBusy(true);
     try {
-      await fetch("http://localhost:8000/api/infrastructure/m2m-override", {
+      const authToken = localStorage.getItem("agraan_auth_token") || "agraan-emergency-dev-key-2026";
+      await fetch(`${API_BASE}/api/infrastructure/m2m-override`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        },
         body: JSON.stringify({ action: "toggle" }),
       });
       fetchData();
@@ -122,7 +138,7 @@ export function InfrastructureCommandView({
     e.stopPropagation();
     setPingingTargetId(targetId);
     try {
-      const res = await fetch("http://localhost:8000/api/infrastructure/m2m-test-ping", {
+      const res = await fetch(`${API_BASE}/api/infrastructure/m2m-test-ping`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ target_id: targetId, lat, lon })
@@ -163,17 +179,22 @@ export function InfrastructureCommandView({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 text-ink">
+    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 text-ink max-w-[1920px] mx-auto w-full">
       {/* Top Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-panel border border-border p-4 rounded-xl shadow-sm">
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-panel border border-border p-4 rounded-[0.66rem] shadow-xs"
+      >
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <div className="flex items-center gap-2.5 mb-1">
+            <span className="p-2 rounded-lg bg-accent/12 text-accent border border-accent/25">
               <Cpu size={20} />
             </span>
-            <h1 className="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-lg font-extrabold tracking-tight text-ink flex items-center gap-2 flex-wrap">
               Autonomous M2M Infrastructure Interlock Center
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-accent/12 text-accent border border-accent/25 font-bold">
                 SCADA PROTOCOL READY
               </span>
             </h1>
@@ -188,10 +209,10 @@ export function InfrastructureCommandView({
           <button
             onClick={handleToggleOverride}
             disabled={overrideBusy}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-md ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer ${
               data?.aborted_by_operator
-                ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-                : "bg-red-600/90 hover:bg-red-600 text-white border border-red-500/50"
+                ? "bg-accent hover:bg-accent/90 text-white"
+                : "bg-destructive hover:bg-destructive/90 text-white"
             }`}
           >
             {data?.aborted_by_operator ? (
@@ -208,29 +229,34 @@ export function InfrastructureCommandView({
           </button>
           <button
             onClick={fetchData}
-            className="p-2 rounded-lg bg-panel-alt border border-border text-ink-dim hover:text-white transition-colors"
+            className="p-2 rounded-lg bg-secondary/60 border border-border text-ink-dim hover:text-ink transition-colors cursor-pointer"
             title="Refresh Interlocks"
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Operator Safety Status Bar */}
-      <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
-        data?.aborted_by_operator
-          ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
-          : data?.interlock_triggered
-          ? "bg-red-500/10 border-red-500/30 text-red-300"
-          : "bg-blue-500/10 border-blue-500/30 text-blue-300"
-      }`}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className={`p-3 rounded-[0.66rem] border flex items-center justify-between text-xs ${
+          data?.aborted_by_operator
+            ? "bg-amber-500/8 border-amber-500/25 text-amber-600 dark:text-amber-400"
+            : data?.interlock_triggered
+            ? "bg-destructive/8 border-destructive/25 text-destructive"
+            : "bg-accent/8 border-accent/25 text-accent"
+        }`}
+      >
         <div className="flex items-center gap-2">
           {data?.aborted_by_operator ? (
-            <XCircle size={16} className="text-amber-400 shrink-0" />
+            <XCircle size={16} className="text-amber-500 shrink-0" />
           ) : data?.interlock_triggered ? (
-            <ShieldAlert size={16} className="text-red-400 shrink-0 animate-pulse" />
+            <ShieldAlert size={16} className="text-destructive shrink-0 animate-pulse" />
           ) : (
-            <ShieldCheck size={16} className="text-blue-400 shrink-0" />
+            <ShieldCheck size={16} className="text-accent shrink-0" />
           )}
           <span>
             <strong>Interlock Mode: </strong>
@@ -244,192 +270,202 @@ export function InfrastructureCommandView({
         <span className="font-mono text-[11px] text-ink-dim hidden sm:inline">
           {data?.trigger_timestamp}
         </span>
-      </div>
+      </motion.div>
 
       {/* 4 Infrastructure Interlock Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {data?.targets.map((target) => {
           const Icon = getTargetIcon(target.id);
           const isSelected = selectedTargetId === target.id;
           const isDispatched = target.status.includes("DISPATCHED") || target.status.includes("INJECTED") || target.status.includes("ARMED");
 
           return (
-            <div
-              key={target.id}
-              onClick={() => setSelectedTargetId(target.id)}
-              className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                isSelected
-                  ? "bg-panel-alt border-blue-500 ring-1 ring-blue-500/50 shadow-md"
-                  : "bg-panel border-border hover:border-border/80 hover:bg-panel-alt/50"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="p-2 rounded-lg bg-white/5 border border-white/10 text-white">
-                  <Icon size={18} className={isDispatched ? "text-red-400" : "text-blue-400"} />
-                </div>
-                <span className={`text-[9.5px] font-mono font-black px-2 py-0.5 rounded border ${
-                  isDispatched
-                    ? "bg-red-500/20 text-red-400 border-red-500/30 animate-pulse"
-                    : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                }`}>
-                  {target.status}
-                </span>
-              </div>
-
-              <h3 className="font-bold text-sm text-white truncate mb-0.5">{target.name}</h3>
-              <p className="text-[11px] text-ink-dim mb-3 truncate">{target.category}</p>
-
-              <div className="space-y-1 text-[11px] border-t border-border/50 pt-2">
-                <div className="flex justify-between">
-                  <span className="text-ink-faint">Protocol:</span>
-                  <span className="font-mono text-ink-dim">{target.protocol.split('/')[0]}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-ink-faint">Latency:</span>
-                  <span className="font-mono text-emerald-400">{target.latency_ms} ms</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-ink-faint">Action:</span>
-                  <span className="font-medium text-white truncate max-w-[140px]">{target.action}</span>
-                </div>
-              </div>
-
-              <button
-                onClick={(e) => handlePingTarget(target.id, e)}
-                disabled={pingingTargetId === target.id}
-                className="w-full mt-2.5 py-1.5 px-2.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-[10.5px] font-bold text-blue-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            <motion.div key={target.id} variants={fadeSlideUp}>
+              <BentoCard
+                onClick={() => setSelectedTargetId(target.id)}
+                glowBorder={isSelected ? "accent" : "none"}
+                className={`p-4 cursor-pointer ${isSelected ? "ring-1 ring-accent/40" : ""}`}
+                whileHover={{ y: -3, scale: 1.01 }}
               >
-                {pingingTargetId === target.id ? (
-                  <>
-                    <RefreshCw size={11} className="animate-spin text-blue-400" />
-                    <span>Transmitting SCADA Frame...</span>
-                  </>
-                ) : (
-                  <>
-                    <Wifi size={11} className="text-emerald-400" />
-                    <span>Ping SCADA ({liveLatencies[target.id] ?? target.latency_ms} ms)</span>
-                  </>
-                )}
-              </button>
-            </div>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className={`p-2 rounded-lg ${isDispatched ? "bg-destructive/12 border-destructive/25" : "bg-accent/12 border-accent/25"} border`}>
+                    <Icon size={18} className={isDispatched ? "text-destructive" : "text-accent"} />
+                  </div>
+                  <span className={`text-[9.5px] font-mono font-black px-2 py-0.5 rounded-md border ${
+                    isDispatched
+                      ? "bg-destructive/12 text-destructive border-destructive/25 animate-pulse"
+                      : "bg-accent/12 text-accent border-accent/25"
+                  }`}>
+                    {target.status}
+                  </span>
+                </div>
+
+                <h3 className="font-bold text-sm text-ink truncate mb-0.5">{target.name}</h3>
+                <p className="text-[11px] text-ink-dim mb-3 truncate">{target.category}</p>
+
+                <div className="space-y-1 text-[11px] border-t border-border-soft/70 pt-2">
+                  <div className="flex justify-between">
+                    <span className="text-ink-faint">Protocol:</span>
+                    <span className="font-mono text-ink-dim">{target.protocol.split('/')[0]}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-ink-faint">Latency:</span>
+                    <span className="font-mono text-accent">{target.latency_ms} ms</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-ink-faint">Action:</span>
+                    <span className="font-medium text-ink truncate max-w-[140px]">{target.action}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => handlePingTarget(target.id, e)}
+                  disabled={pingingTargetId === target.id}
+                  className="w-full mt-2.5 py-1.5 px-2.5 rounded-lg bg-accent/10 hover:bg-accent/15 border border-accent/25 text-[10.5px] font-bold text-accent flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {pingingTargetId === target.id ? (
+                    <>
+                      <RefreshCw size={11} className="animate-spin text-accent" />
+                      <span>Transmitting SCADA Frame...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Wifi size={11} className="text-accent" />
+                      <span>Ping SCADA ({liveLatencies[target.id] ?? target.latency_ms} ms)</span>
+                    </>
+                  )}
+                </button>
+              </BentoCard>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {/* Selected Infrastructure Inspector & Protocol Payload Viewer */}
       {selectedTarget && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-2">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.1 }}
+          className="grid grid-cols-1 lg:grid-cols-3 gap-5"
+        >
+          <BentoCard className="lg:col-span-2">
             <CardHeader
               icon={Code2}
               title={`SCADA Protocol Payload: ${selectedTarget.name}`}
               right={
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-accent/12 text-accent border border-accent/25">
                   {selectedTarget.protocol}
                 </span>
               }
             />
             <CardBody className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="bg-panel-alt p-3 rounded-lg border border-border space-y-1">
+                <div className="bg-secondary/40 p-3 rounded-lg border border-border space-y-1">
                   <span className="text-ink-faint text-[10px] uppercase font-bold tracking-wider">Automated Action Command</span>
-                  <p className="font-semibold text-white">{selectedTarget.action}</p>
+                  <p className="font-semibold text-ink">{selectedTarget.action}</p>
                 </div>
-                <div className="bg-panel-alt p-3 rounded-lg border border-border space-y-1">
+                <div className="bg-secondary/40 p-3 rounded-lg border border-border space-y-1">
                   <span className="text-ink-faint text-[10px] uppercase font-bold tracking-wider">Fail-Safe Hardware Interlock</span>
-                  <p className="font-semibold text-amber-300">{selectedTarget.fail_safe}</p>
+                  <p className="font-semibold text-amber-600 dark:text-amber-400">{selectedTarget.fail_safe}</p>
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5 text-xs text-ink-dim">
                   <span className="font-mono text-[11px] flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-blue-400" />
+                    <Sparkles size={12} className="text-accent" />
                     Machine-to-Machine Injected Packet (JSON-LD / Industrial SCADA Object):
                   </span>
-                  <span className="text-[10px] font-mono text-emerald-400">Zero-Loss Optical Isolation Simulated</span>
+                  <span className="text-[10px] font-mono text-accent">Zero-Loss Optical Isolation Simulated</span>
                 </div>
-                <pre className="p-3 rounded-lg bg-[#080d1a] border border-border text-emerald-400 font-mono text-[11px] overflow-x-auto leading-relaxed">
+                <pre className="p-3 rounded-lg bg-secondary/30 border border-border text-accent font-mono text-[11px] overflow-x-auto leading-relaxed">
                   {JSON.stringify(selectedTarget.payload_preview, null, 2)}
                 </pre>
               </div>
             </CardBody>
-          </Card>
+          </BentoCard>
 
           {/* Radical Transparency & Cautionary Tale Column */}
-          <Card className="flex flex-col">
+          <BentoCard className="flex flex-col">
             <CardHeader
               icon={Info}
               title="Transparency & Safety Guardrails"
             />
             <CardBody className="p-4 flex-1 flex flex-col justify-between space-y-4 text-xs">
               <div className="space-y-3">
-                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
-                  <div className="font-bold flex items-center gap-1.5 mb-1 text-amber-200">
+                <div className="p-3 rounded-lg bg-amber-500/8 border border-amber-500/20 text-amber-700 dark:text-amber-300">
+                  <div className="font-bold flex items-center gap-1.5 mb-1">
                     <AlertTriangle size={14} />
                     The "One Concern" Cautionary Tale
                   </div>
-                  <p className="text-[11.5px] leading-relaxed text-amber-200/90">
+                  <p className="text-[11.5px] leading-relaxed opacity-90">
                     In early AI disaster-tech, companies like <em>One Concern</em> faced public scandal and municipal backlash by claiming unverified black-box flood models could directly command municipal decisions without transparent calibration.
                   </p>
                 </div>
 
                 <div className="space-y-2 text-ink-dim text-[11px] leading-relaxed">
                   <div className="flex items-start gap-2">
-                    <CheckCircle2 size={13} className="text-emerald-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 size={13} className="text-accent shrink-0 mt-0.5" />
                     <span><strong>Transparent Standards:</strong> We output open industrial formats (IEC 60870-5-104 &amp; MQTT) instead of black boxes.</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <CheckCircle2 size={13} className="text-emerald-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 size={13} className="text-accent shrink-0 mt-0.5" />
                     <span><strong>Human-in-the-Loop (HITL):</strong> A mandatory 60s override window gives engineers final veto power.</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <CheckCircle2 size={13} className="text-emerald-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 size={13} className="text-accent shrink-0 mt-0.5" />
                     <span><strong>Air-Gap Ready:</strong> Production deployment requires a unidirectional hardware Data Diode to protect municipal SCADA from cyber compromise.</span>
                   </div>
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-lg bg-panel-alt border border-border text-[10.5px] font-mono text-ink-faint">
+              <div className="p-2.5 rounded-lg bg-secondary/40 border border-border text-[10.5px] font-mono text-ink-faint">
                 ⚡ Tier: {data?.transparency_framework.tier || "SIMULATED SCADA / WEBHOOK READY"}
               </div>
             </CardBody>
-          </Card>
-        </div>
+          </BentoCard>
+        </motion.div>
       )}
 
       {/* Live SCADA Protocol Audit Terminal */}
-      <Card>
-        <CardHeader
-          icon={Terminal}
-          title="Live SCADA Protocol Audit Stream & Telemetry Terminal"
-          right={
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] font-mono text-emerald-400 font-bold">LIVE SCADA STREAM</span>
-            </div>
-          }
-        />
-        <CardBody className="p-4 space-y-3">
-          <div className="p-3.5 rounded-xl bg-[#050811] border border-white/10 font-mono text-xs space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
-            {scadaLogs.map((log) => (
-              <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 p-2.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-slate-500 text-[10px] font-mono">{log.time}</span>
-                  <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10.5px] font-bold border border-blue-500/30">
-                    {log.target}
-                  </span>
-                  <span className="text-emerald-400 text-[11px] font-mono">{log.frame}</span>
-                </div>
-                <div className="flex items-center gap-3 text-[10.5px] text-slate-400 shrink-0">
-                  <span className="text-amber-400 font-bold font-mono">RTT: {log.latency} ms</span>
-                  <span className="text-slate-500 font-mono text-[10px]">{log.hash}</span>
-                </div>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.2 }}
+      >
+        <BentoCard>
+          <CardHeader
+            icon={Terminal}
+            title="Live SCADA Protocol Audit Stream & Telemetry Terminal"
+            right={
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                <span className="text-[10px] font-mono text-accent font-bold">LIVE SCADA STREAM</span>
               </div>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
+            }
+          />
+          <CardBody className="p-4 space-y-3">
+            <div className="p-3.5 rounded-lg bg-secondary/30 border border-border font-mono text-xs space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+              {scadaLogs.map((log) => (
+                <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 p-2.5 rounded-lg bg-secondary/40 border border-border/60 hover:bg-secondary/60 transition-all">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-faint text-[10px] font-mono">{log.time}</span>
+                    <span className="px-2 py-0.5 rounded-md bg-accent/12 text-accent text-[10.5px] font-bold border border-accent/25">
+                      {log.target}
+                    </span>
+                    <span className="text-accent text-[11px] font-mono">{log.frame}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10.5px] text-ink-faint shrink-0">
+                    <span className="text-amber-600 dark:text-amber-400 font-bold font-mono">RTT: {log.latency} ms</span>
+                    <span className="text-ink-faint font-mono text-[10px]">{log.hash}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardBody>
+        </BentoCard>
+      </motion.div>
     </div>
   );
 }

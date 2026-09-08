@@ -10,7 +10,8 @@ import {
   Radio,
   Sparkles
 } from "lucide-react";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { BentoCard, CardHeader, CardBody } from "@/components/ui/card";
+import { apiFetch } from "@/config/api";
 
 interface CascadingStep {
   step: number;
@@ -50,13 +51,13 @@ interface ImpactPredictionPanelProps {
 function getStepVisuals(hazard: string) {
   const h = hazard.toLowerCase();
   if (h.includes("cloud") || h.includes("rain") || h.includes("thunder")) {
-    return { icon: CloudLightning, color: "#f59e0b" };
+    return { icon: CloudLightning, color: "#f5b35a" };
   } else if (h.includes("flood") || h.includes("surge") || h.includes("hydro")) {
-    return { icon: Waves, color: "#3b82f6" };
+    return { icon: Waves, color: "#246b38" };
   } else if (h.includes("slide") || h.includes("erosion") || h.includes("mud") || h.includes("slope")) {
-    return { icon: Mountain, color: "#ef4444" };
+    return { icon: Mountain, color: "#c92a2a" };
   } else {
-    return { icon: AlertTriangle, color: "#dc2626" };
+    return { icon: AlertTriangle, color: "#c92a2a" };
   }
 }
 
@@ -77,7 +78,7 @@ export function ImpactPredictionPanel({
     let isMounted = true;
     setLoading(true);
 
-    fetch(`http://localhost:8000/api/cascading-chain/${lat.toFixed(4)}/${lon.toFixed(4)}?forecast_hour=${forecastHour}`)
+    apiFetch(`/api/cascading-chain/${lat.toFixed(4)}/${lon.toFixed(4)}?forecast_hour=${forecastHour}`)
       .then((res) => {
         if (!res.ok) throw new Error("Cascade endpoint error");
         return res.json();
@@ -98,84 +99,82 @@ export function ImpactPredictionPanel({
     };
   }, [lat, lon, forecastHour]);
 
-  // Fallback defaults if offline or initial load
-  const steps: CascadingStep[] = chainData?.steps || [
+  const defaultSteps: CascadingStep[] = [
     {
       step: 1,
       time: "T + 00m",
-      hazard: "Cloudburst Initiation",
+      hazard: "Heavy localized downpour saturates catchment",
       status: "TRIGGER EVENT",
-      desc: "Convective updraft triggers localized precipitation surge.",
-      metric: `Rain Rate: ${chainData?.rain_rate_mmh || 88} mm/h`,
-      probability: 78.4,
+      desc: "Extreme convective precipitation rate exceeds soil infiltration capacity.",
+      metric: `Rain Rate: ${chainData?.rain_rate_mmh ?? 15} mm/h`,
+      probability: 88,
     },
     {
       step: 2,
       time: "T + 45m",
-      hazard: "Flash Flood Hydro-Surge",
+      hazard: "Discharge exceeds municipal carrying capacity in river basin",
       status: "CASCADING PHASE 1",
-      desc: `Rapid water level surge exceeds river buffer threshold.`,
-      metric: `River Crest: +${chainData?.river_crest_m || 2.5} m`,
-      probability: 72.1,
+      desc: "Surface runoff funnels into river corridor causing sudden stage increase.",
+      metric: `River Crest: +${chainData?.river_crest_m ?? 1.2} m`,
+      probability: 72,
     },
     {
       step: 3,
       time: "T + 90m",
-      hazard: "Toe Erosion & Landslide",
+      hazard: "Drainage backflow submerges low-lying crossings and culverts",
       status: "CASCADING PHASE 2",
-      desc: "Slope saturation causes soil failure along valley cut.",
-      metric: `Saturation: ${chainData?.soil_saturation_pct || 89}%`,
-      probability: 84.6,
+      desc: "High soil pore pressure creates hydraulic backflow through storm drains.",
+      metric: `Soil Saturation: ${chainData?.soil_saturation_pct ?? 92}%`,
+      probability: 65,
     },
     {
       step: 4,
       time: "T + 135m",
-      hazard: "Critical Corridor Severed",
+      hazard: "Water accumulation halts vehicular transit along arterial highways",
       status: "TERMINAL IMPACT",
-      desc: `Debris blockage threatens transit along main artery.`,
-      metric: "Access: Severed",
-      probability: 65.0,
+      desc: "Severe inundation renders critical corridors impassable to normal vehicular traffic.",
+      metric: "Access: Restricted",
+      probability: 58,
     },
   ];
 
-  const fallbackCorridor = locationName ? `${locationName} Central Transit Corridor` : (lat > 29 ? "NH-107 Himalayan Highway" : "Primary Transit Expressway");
-  const fallbackRiver = locationName ? `${locationName} Drainage River Basin` : (lat > 29 ? "Mandakini River Basin" : "Regional River Catchment");
+  const steps = chainData?.steps && chainData.steps.length > 0 ? chainData.steps : defaultSteps;
 
-  const exposureStats: [string, string][] = [
-    ["Target Corridor", chainData?.corridor || fallbackCorridor],
-    ["Primary Catchment", chainData?.river || fallbackRiver],
-    ["Affected Area Footprint", `${chainData?.affected_area_km2 ?? (lat > 28 ? 4.7 : 8.2)} km²`],
-    ["Population in Cascade Path", `${(chainData?.people_exposed ?? Math.round(15000 + Math.abs(lat * 600) % 22000)).toLocaleString()} residents`],
+  const exposureStats = [
+    ["Population at Immediate Risk", `${(chainData?.people_exposed ?? 14200).toLocaleString()} residents`],
+    ["Hazard Inundation Footprint", `${chainData?.affected_area_km2 ?? 24.6} km² surface basin`],
+    ["Primary Drainage Corridor", chainData?.corridor || "Hindon Basin Arterial"],
     ["Peak River Surcharge", `+${chainData?.river_crest_m ?? (lat > 28 ? 2.8 : 1.4)} m above datum`],
     ["Soil Saturation Ratio", `${chainData?.soil_saturation_pct ?? (lat > 28 ? 88 : 74)}%`],
     ["Active Mesh Relay Nodes", `${chainData?.mesh_hops_active ?? 14} BLE Hops active`],
   ];
 
   return (
-    <Card className="flex flex-col min-w-0 h-full">
+    <BentoCard className="flex flex-col min-w-0 h-full">
       <CardHeader 
         icon={Workflow} 
-        title="Cascading Hazard Chain" 
+        title="Cascading Impact Chain" 
+        subtitle="Hydrological Domino Progression & Time Milestones"
         right={
           <div className="flex items-center gap-1.5 shrink-0">
             {chainData && (
-              <span className="hidden 2xl:inline-flex items-center gap-1 text-[8.5px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+              <span className="hidden xl:inline-flex items-center gap-1 text-[9px] font-mono text-accent bg-secondary px-2 py-0.5 rounded border border-accent/20 font-bold">
                 <Sparkles size={10} /> Live ML Fused
               </span>
             )}
             <div className="flex items-center gap-1 bg-panel-alt p-0.5 rounded-lg border border-border text-[10px]">
               <button
                 onClick={() => setActiveView("cascade")}
-                className={`px-2 py-0.5 rounded font-medium transition-all ${
-                  activeView === "cascade" ? "bg-blue-600 text-white shadow-sm" : "text-ink-faint hover:text-ink"
+                className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                  activeView === "cascade" ? "bg-accent text-white shadow-xs" : "text-ink-faint hover:text-ink"
                 }`}
               >
-                Cascade
+                Chain
               </button>
               <button
                 onClick={() => setActiveView("exposure")}
-                className={`px-2 py-0.5 rounded font-medium transition-all ${
-                  activeView === "exposure" ? "bg-blue-600 text-white shadow-sm" : "text-ink-faint hover:text-ink"
+                className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                  activeView === "exposure" ? "bg-accent text-white shadow-xs" : "text-ink-faint hover:text-ink"
                 }`}
               >
                 Exposure
@@ -185,53 +184,59 @@ export function ImpactPredictionPanel({
         }
       />
 
-      <CardBody className="flex-1 flex flex-col p-3 space-y-2.5">
+      <CardBody className="flex-1 flex flex-col p-4 space-y-3">
         {activeView === "cascade" ? (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {/* Lead Alert Banner */}
-            <div className="px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-between text-[10.5px]">
-              <span className="text-red-400 font-bold flex items-center gap-1.5 truncate">
-                <Activity size={12} className="animate-pulse shrink-0" /> 
-                <span className="truncate">Domino Sequence: {chainData?.river || "River Basin"}</span>
+            <div className="px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/25 flex items-center justify-between text-[11px]">
+              <span className="text-destructive font-bold flex items-center gap-1.5 truncate">
+                <Activity size={13} className="animate-pulse shrink-0" /> 
+                <span className="truncate">Domino Sequence: {chainData?.river || "River Catchment"}</span>
               </span>
-              <span className="text-white font-mono text-[9px] shrink-0 bg-red-950/60 px-1.5 py-0.5 rounded border border-red-500/20">
+              <span className="text-destructive font-mono text-[9.5px] font-bold shrink-0 bg-destructive/15 px-2 py-0.5 rounded">
                 {chainData?.sequence_label || (chainData?.is_mountain ? "Cloudburst ➔ Surge ➔ Landslide" : "Downpour ➔ Surge ➔ Inundation")}
               </span>
             </div>
 
-            {/* Domino Progression Steps */}
-            <div className="space-y-1.5 relative">
-              {steps.map((item) => {
+            {/* Connected Subway-Node Progression */}
+            <div className="relative pl-6 space-y-3 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-border">
+              {steps.map((item, idx) => {
                 const { icon: Icon, color } = getStepVisuals(item.hazard);
                 return (
                   <div 
-                    key={item.step}
-                    className="p-2 rounded-lg bg-panel-alt/70 border border-border/70 flex items-start gap-2.5 transition-all hover:border-border hover:bg-panel-alt"
+                    key={item.step || idx}
+                    className="relative p-2.5 rounded-lg bg-panel-alt border border-border flex items-start gap-2.5 transition-all hover:shadow-xs hover:border-border/80"
                   >
+                    {/* Node Dot on Subway Line */}
                     <div 
-                      className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
-                      style={{ background: `${color}20`, border: `1px solid ${color}50` }}
+                      className="absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-panel shadow-xs shrink-0"
+                      style={{ background: color }}
+                    />
+
+                    <div 
+                      className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5 shadow-xs"
+                      style={{ background: `${color}15`, border: `1px solid ${color}40` }}
                     >
-                      <Icon size={12} style={{ color }} />
+                      <Icon size={13} style={{ color }} />
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 leading-none mb-1">
-                        <span className="text-[11px] font-bold text-white truncate">{item.hazard}</span>
-                        <span className="text-[9.5px] font-mono font-bold text-ink-dim shrink-0">{item.time}</span>
+                        <span className="text-[11.5px] font-bold text-ink truncate">{item.hazard}</span>
+                        <span className="text-[10px] font-mono font-bold text-accent shrink-0 bg-secondary px-1.5 py-0.2 rounded">{item.time}</span>
                       </div>
-                      <p className="text-[9.5px] text-ink-faint leading-tight line-clamp-1">{item.desc}</p>
-                      <div className="flex items-center justify-between mt-1 text-[9.5px]">
-                        <span className="font-semibold text-slate-300">{item.metric}</span>
+                      <p className="text-[10px] text-ink-dim leading-snug line-clamp-1">{item.desc}</p>
+                      <div className="flex items-center justify-between mt-1.5 text-[10px]">
+                        <span className="font-semibold text-ink-dim">{item.metric}</span>
                         <div className="flex items-center gap-1.5">
                           {item.probability !== undefined && (
-                            <span className="text-[9px] font-mono text-ink-dim">
+                            <span className="text-[9.5px] font-mono font-bold text-ink-faint">
                               {Math.round(item.probability)}% Risk
                             </span>
                           )}
                           <span 
-                            className="text-[8.5px] font-black px-1.5 py-0.2 rounded"
-                            style={{ background: `${color}20`, color }}
+                            className="text-[8.5px] font-bold px-1.5 py-0.2 rounded uppercase"
+                            style={{ background: `${color}15`, color }}
                           >
                             {item.status}
                           </span>
@@ -244,22 +249,22 @@ export function ImpactPredictionPanel({
             </div>
           </div>
         ) : (
-          <div className="space-y-2 flex-1 flex flex-col justify-between">
+          <div className="space-y-2.5 flex-1 flex flex-col justify-between">
             <div className="space-y-1.5">
               {exposureStats.map(([k, v]) => (
-                <div key={k} className="flex justify-between text-[11px] py-1 border-b border-border/50">
+                <div key={k} className="flex justify-between items-center text-[11.5px] py-1.5 border-b border-border/40">
                   <span className="text-ink-dim">{k}</span>
-                  <span className="font-bold text-white text-right ml-2 truncate max-w-[180px]">{v}</span>
+                  <span className="font-bold text-ink text-right ml-2 truncate max-w-[190px]">{v}</span>
                 </div>
               ))}
             </div>
-            <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[9.5px] text-blue-300 flex items-center gap-1.5">
-              <Radio size={12} className="shrink-0 text-blue-400" />
-              <span>Hydrological domino impact computed via real-time digital elevation & river buffer model.</span>
+            <div className="p-2.5 rounded-lg bg-secondary border border-border text-[10px] text-ink flex items-center gap-2 shadow-xs">
+              <Radio size={13} className="shrink-0 text-accent" />
+              <span>Hydrological domino impact computed via real-time digital elevation &amp; river buffer model.</span>
             </div>
           </div>
         )}
       </CardBody>
-    </Card>
+    </BentoCard>
   );
 }

@@ -1,12 +1,20 @@
 import type { LucideIcon } from "lucide-react";
 
+declare global {
+  interface Window {
+    google?: any;
+    googleTranslateElementInit?: any;
+    L?: any;
+  }
+}
+
 export type RiskLevel = "extreme" | "high" | "moderate" | "low" | "verylow";
 
 export interface NavItem {
   id: string;
   label: string;
   icon: LucideIcon;
-  badge?: number;
+  badge?: number | string;
 }
 
 export interface DataSource {

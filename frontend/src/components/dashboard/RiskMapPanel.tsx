@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Map as MapIcon,
   ChevronDown,
@@ -10,12 +9,11 @@ import {
   Maximize2,
   Play,
   Pause,
-  X,
+  Radio,
 } from "lucide-react";
-import { Card, CardHeader } from "@/components/ui/card";
+import { BentoCard, CardHeader } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
-import { Badge, LEVEL_COLOR } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { LEVEL_COLOR } from "@/components/ui/badge";
 
 import { LiveMap } from "./LiveMap";
 
@@ -47,6 +45,7 @@ interface RiskMapPanelProps {
   activeLayer: string;
   onLayerChange: (layer: string) => void;
   satelliteRevision?: number;
+  onLaunchFullScreen?: () => void;
 }
 
 export function RiskMapPanel({ 
@@ -56,9 +55,9 @@ export function RiskMapPanel({
   monitoredLocation, 
   activeLayer, 
   onLayerChange,
-  satelliteRevision = 0
+  satelliteRevision = 0,
+  onLaunchFullScreen
 }: RiskMapPanelProps) {
-  const [hazardLayer, setHazardLayer] = useState<string>("Flash Flood");
   const [hazardChecks, setHazardChecks] = useState<Record<string, boolean>>({
     [activeLayer]: true,
   });
@@ -130,48 +129,72 @@ export function RiskMapPanel({
   };
 
   return (
-    <Card>
+    <BentoCard glowBorder="accent" className="flex flex-col h-full min-w-0">
       <CardHeader
         icon={MapIcon}
-        title="Live risk map"
+        title="Live Geospatial Radar"
+        subtitle="High-Resolution Hazard Nowcast & GIS Infrastructure Overlay"
         right={
-          <div className="hidden lg:flex items-center gap-2.5 text-[11px] text-ink-dim">
-            <span>Nowcast: 0–6h</span>
+          <div className="hidden sm:flex items-center gap-2.5 text-[11px] text-ink-dim">
+            <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-secondary text-accent border border-border flex items-center gap-1 font-semibold">
+              <Radio size={11} className="text-accent animate-pulse" /> Nowcast: 0–6h
+            </span>
             <span className="mx-0.5 opacity-40">·</span>
             {(["verylow", "low", "moderate", "high", "extreme"] as const).map((l) => (
-              <span key={l} className="flex items-center gap-1 capitalize">
-                <span className="w-2 h-2 rounded-full" style={{ background: LEVEL_COLOR[l] }} />
+              <span key={l} className="flex items-center gap-1.5 capitalize font-medium text-[11px]">
+                <span className="w-2 h-2 rounded-full ring-1 ring-black/10" style={{ background: LEVEL_COLOR[l] }} />
                 {l === "verylow" ? "Very low" : l}
               </span>
             ))}
+            {onLaunchFullScreen && (
+              <button
+                onClick={onLaunchFullScreen}
+                className="ml-2 px-2.5 py-1 rounded-md bg-accent hover:opacity-90 text-white font-bold text-[11px] transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Open Dedicated Fullscreen GIS Command"
+              >
+                <Maximize2 size={11} /> Fullscreen GIS
+              </button>
+            )}
           </div>
         }
       />
 
-      <div className="flex flex-col lg:flex-row">
-        {/* Layer controls */}
-        <div className="lg:w-52 shrink-0 p-3.5 space-y-4 border-b lg:border-b-0 lg:border-r border-border-soft">
+
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0">
+        {/* Layer controls sidebar */}
+        <div className="lg:w-56 shrink-0 p-3.5 space-y-4 border-b lg:border-b-0 lg:border-r border-border/70 bg-panel/60">
           <div>
-            <span className="text-[11px] font-semibold text-ink-dim">Hazard layer</span>
-            <div className="flex items-center justify-between px-2.5 py-1.5 mt-1.5 mb-2 rounded-lg text-[12px] cursor-pointer bg-panel-alt border border-border">
-              {hazardLayer}
-              <ChevronDown size={13} className="text-ink-faint" />
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">Active Hazard</span>
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-secondary text-accent font-bold">LIVE</span>
             </div>
-            {HAZARD_LAYERS.map((h) => (
-              <Toggle
-                key={h}
-                label={h}
-                checked={!!hazardChecks[h]}
-                onChange={(v) => {
-                  setHazardChecks({ [h]: true }); // Only one layer active at a time for API
-                  if (v) onLayerChange(h);
-                }}
-              />
-            ))}
+            <div className="space-y-1">
+              {HAZARD_LAYERS.map((h) => {
+                const isActive = !!hazardChecks[h];
+                return (
+                  <button
+                    key={h}
+                    onClick={() => {
+                      setHazardChecks({ [h]: true });
+                      onLayerChange(h);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[11.5px] font-medium transition-all text-left cursor-pointer ${
+                      isActive 
+                        ? "bg-secondary text-accent border border-accent/40 shadow-2xs font-semibold" 
+                        : "bg-panel-alt/50 text-ink-dim border border-transparent hover:bg-panel-alt hover:text-ink"
+                    }`}
+                  >
+                    <span>{h}</span>
+                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div>
-            <span className="text-[11px] font-semibold text-ink-dim">Exposure layer</span>
-            <div className="mt-1.5">
+
+          <div className="pt-1 border-t border-border/60">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint block mb-1.5">Exposure Overlays</span>
+            <div className="space-y-1">
               {EXPOSURE_LAYERS.map((e) => (
                 <Toggle
                   key={e}
@@ -182,15 +205,17 @@ export function RiskMapPanel({
               ))}
             </div>
           </div>
-          <div className="space-y-1.5 pt-1">
+
+          <div className="space-y-1 pt-1 border-t border-border/60">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint block mb-1.5">Basemap Projection</span>
             {MAP_MODES.map((m) => (
               <button
                 key={m}
                 onClick={() => setMapMode(m)}
-                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors border ${
+                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11.5px] transition-all cursor-pointer border ${
                   mapMode === m
-                    ? "bg-accent text-white border-accent"
-                    : "bg-panel-alt text-ink-dim border-border hover:text-ink"
+                    ? "bg-accent text-white border-accent shadow-xs font-semibold"
+                    : "bg-panel-alt/60 text-ink-dim border-border/70 hover:text-ink hover:bg-panel-alt"
                 }`}
               >
                 <Layers size={13} /> {m}
@@ -200,7 +225,7 @@ export function RiskMapPanel({
         </div>
 
         {/* Map canvas */}
-        <div ref={mapContainerRef} className="relative flex-1 min-h-[480px] bg-[#0b0f18] overflow-hidden rounded-br-xl">
+        <div ref={mapContainerRef} className="relative flex-1 min-h-[500px] bg-background overflow-hidden">
           <LiveMap 
             heatmapData={heatmapData} 
             activeLayer={activeLayer} 
@@ -212,53 +237,53 @@ export function RiskMapPanel({
             satelliteRevision={satelliteRevision}
           />
 
-          {/* Interactive Map Controls */}
+          {/* Interactive Map HUD Controls (Floating Top-Right) */}
           <div className="absolute top-4 right-4 flex flex-col gap-1.5 z-10">
             <button
               onClick={handleZoomIn}
               title="Zoom In (+)"
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 bg-panel/95 backdrop-blur-md border border-border shadow-sm text-ink hover:text-accent cursor-pointer"
             >
-              <Plus size={14} />
+              <Plus size={15} />
             </button>
             <button
               onClick={handleZoomOut}
               title="Zoom Out (-)"
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 bg-panel/95 backdrop-blur-md border border-border shadow-sm text-ink hover:text-accent cursor-pointer"
             >
-              <Minus size={14} />
+              <Minus size={15} />
             </button>
             <button
               onClick={handleRecenter}
               title="Recenter Map on Monitored Epicenter"
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 bg-panel/95 backdrop-blur-md border border-border shadow-sm text-ink hover:text-accent cursor-pointer"
             >
-              <Compass size={14} />
+              <Compass size={15} />
             </button>
             <button
               onClick={handleCycleMode}
               title={`Switch Base Layer: ${mapMode} (Click to toggle)`}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 bg-panel/95 backdrop-blur-md border border-border shadow-sm text-ink hover:text-accent cursor-pointer"
             >
-              <Layers size={14} />
+              <Layers size={15} />
             </button>
             <button
               onClick={handleToggleFullscreen}
               title="Toggle Fullscreen Map"
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-125 hover:bg-panel active:scale-95 bg-panel/90 border border-border shadow-md text-ink-dim hover:text-ink cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 bg-panel/95 backdrop-blur-md border border-border shadow-sm text-ink hover:text-accent cursor-pointer"
             >
-              <Maximize2 size={14} />
+              <Maximize2 size={15} />
             </button>
           </div>
 
-          {/* Interactive Time Animation Bar */}
-          <div className="absolute bottom-3 left-3 flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] text-ink-dim bg-panel/90 backdrop-blur-md border border-border z-10 shadow-md">
+          {/* Interactive Time Animation Bar (Floating Bottom-Left) */}
+          <div className="absolute bottom-4 left-4 flex items-center gap-3 px-3.5 py-2 rounded-lg text-[11.5px] text-ink bg-panel/95 backdrop-blur-md border border-border z-10 shadow-md">
             <button
               onClick={() => setIsPlaying(!isPlaying)}
-              className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 font-bold transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-accent hover:opacity-85 font-bold transition-all cursor-pointer"
               title={isPlaying ? "Pause Nowcast Animation" : "Play Nowcast Animation"}
             >
-              {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+              {isPlaying ? <Pause size={14} className="fill-accent" /> : <Play size={14} className="fill-accent" />}
               <span>{isPlaying ? "Pause" : "Play"}</span>
             </button>
             <span className="text-border">|</span>
@@ -268,12 +293,15 @@ export function RiskMapPanel({
               max={6} 
               value={animHour} 
               onChange={(e) => setAnimHour(parseInt(e.target.value))} 
-              className="w-24 accent-blue-500 cursor-pointer" 
+              className="w-24 accent-[#246b38] cursor-pointer" 
             />
-            <span className="font-mono font-semibold text-ink">+{animHour}h Nowcast</span>
+            <span className="font-mono font-bold text-accent bg-secondary px-2 py-0.5 rounded border border-border/80 text-[10.5px]">
+              +{animHour}h Nowcast
+            </span>
           </div>
         </div>
       </div>
-    </Card>
+    </BentoCard>
   );
 }
+

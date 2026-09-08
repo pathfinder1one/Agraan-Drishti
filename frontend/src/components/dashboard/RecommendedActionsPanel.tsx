@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ShieldAlert, Send, CheckCircle2 } from "lucide-react";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { ShieldAlert, Send, CheckCircle2, ListChecks } from "lucide-react";
+import { BentoCard, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 interface RecommendedActionsPanelProps {
@@ -41,33 +41,51 @@ export function RecommendedActionsPanel({
     setTimeout(() => setSent(false), 4000);
   };
 
+  const completedCount = Object.values(checked).filter(Boolean).length;
+
   return (
-    <Card>
-      <CardHeader icon={ShieldAlert} title="Recommended Actions (SOP)" />
-      <CardBody className="space-y-2">
-        {dynamicActions.map((a, i) => (
-          <label
-            key={a}
-            className="flex items-start gap-2.5 text-[12.5px] py-1 cursor-pointer text-ink-dim hover:text-ink transition-colors"
-          >
-            <input
-              type="checkbox"
-              className="mt-0.5 accent-blue-500 w-3.5 h-3.5 rounded"
-              checked={!!checked[i]}
-              onChange={(e) => setChecked((s) => ({ ...s, [i]: e.target.checked }))}
-            />
-            <span className={checked[i] ? "line-through opacity-50" : ""}>{a}</span>
-          </label>
-        ))}
+    <BentoCard glowBorder="amber">
+      <CardHeader 
+        icon={ShieldAlert} 
+        title="Tactical Action Protocols (SOP)" 
+        subtitle="Standardized Disaster Management Protocols"
+        right={
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-secondary text-accent border border-border font-bold shadow-2xs">
+            {completedCount}/{dynamicActions.length} Completed
+          </span>
+        }
+      />
+      <CardBody className="space-y-2 p-3.5">
+        <div className="space-y-1">
+          {dynamicActions.map((a, i) => (
+            <label
+              key={a}
+              className={`flex items-start gap-2.5 text-[12px] p-2 rounded-lg cursor-pointer transition-all border ${
+                checked[i] 
+                  ? "bg-secondary/40 border-border/50 text-ink-dim line-through opacity-60" 
+                  : "bg-panel-alt/50 border-border/60 text-ink hover:bg-panel-alt hover:border-accent/30"
+              }`}
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-[#246b38] w-3.5 h-3.5 rounded cursor-pointer shrink-0"
+                checked={!!checked[i]}
+                onChange={(e) => setChecked((s) => ({ ...s, [i]: e.target.checked }))}
+              />
+              <span className="leading-snug">{a}</span>
+            </label>
+          ))}
+        </div>
         <Button 
-          variant="danger" 
+          variant="destructive" 
           onClick={handleSend}
-          className="w-full mt-2 flex items-center justify-center gap-1.5"
+          className="w-full mt-2 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs font-bold py-2 text-xs"
         >
           {sent ? <CheckCircle2 size={14} className="text-white" /> : <Send size={13} />}
-          {sent ? "Emergency Alert Dispatched!" : "Send Alert to Authorities"}
+          {sent ? "Emergency Alert Dispatched to SDRF!" : "Broadcast SOP Alert to Authorities"}
         </Button>
       </CardBody>
-    </Card>
+    </BentoCard>
   );
 }
+

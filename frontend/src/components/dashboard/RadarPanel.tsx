@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Radar as RadarIcon, CircleDot, Radio, Activity } from "lucide-react";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { Radar as RadarIcon, CircleDot, Activity } from "lucide-react";
+import { BentoCard, CardHeader, CardBody } from "@/components/ui/card";
 
-const SCALE = ["#0ea5e9", "#22c55e", "#eab308", "#f59e0b", "#ef4444"];
+const SCALE = ["#246b38", "#52b788", "#f5b35a", "#e67e22", "#c92a2a"];
 
 interface RadarPanelProps {
   monitoredLocation?: { lat: number; lon: number } | null;
@@ -56,30 +56,31 @@ export function RadarPanel({ monitoredLocation, locationName, maxRisks, radarLiv
   }
   
   let condition = "Light Scatter / Clear Skies";
-  let conditionColor = "text-emerald-400";
-  let pulseColor = "#22c55e";
+  let conditionColor = "text-emerald-700 dark:text-emerald-400";
+  let pulseColor = "#246b38";
 
   if (dbz >= 52) {
     condition = "Severe Convective Core";
-    conditionColor = "text-red-400";
-    pulseColor = "#ef4444";
+    conditionColor = "text-destructive";
+    pulseColor = "#c92a2a";
   } else if (dbz >= 40) {
     condition = "Intense Precipitation Band";
-    conditionColor = "text-orange-400";
-    pulseColor = "#f97316";
+    conditionColor = "text-amber-700 dark:text-amber-400";
+    pulseColor = "#f5b35a";
   } else if (dbz >= 28) {
     condition = "Moderate Cloud Scatter";
-    conditionColor = "text-yellow-400";
-    pulseColor = "#eab308";
+    conditionColor = "text-amber-600 dark:text-amber-300";
+    pulseColor = "#f5b35a";
   }
 
   return (
-    <Card className="flex flex-col h-full">
+    <BentoCard glowBorder="accent" className="flex flex-col h-full">
       <CardHeader 
         icon={RadarIcon} 
-        title="Radar reflectivity" 
+        title="Doppler Radar (DWR)" 
+        subtitle="Polarimetric Reflectivity & Precipitation Core"
         right={
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-panel-alt text-ink-dim border border-border">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-secondary text-accent border border-border font-bold shadow-2xs">
             {dbz} dBZ
           </span>
         } 
@@ -88,31 +89,31 @@ export function RadarPanel({ monitoredLocation, locationName, maxRisks, radarLiv
         <div className="flex-1 flex gap-2 min-h-[135px]">
           {/* Animated Radar Sweep Canvas */}
           <div
-            className="flex-1 rounded-lg relative overflow-hidden border border-border/50"
+            className="flex-1 rounded-lg relative overflow-hidden border border-border/70 shadow-inner"
             style={{
-              background: `radial-gradient(circle at 48% 50%, ${pulseColor} 0%, #f59e0b 28%, #16a34a 55%, #0ea5e9 78%, #080d1a 95%)`,
+              background: `radial-gradient(circle at 48% 50%, ${pulseColor} 0%, #f5b35a 32%, #246b38 60%, #0f2416 82%, #080d1a 98%)`,
             }}
           >
             {/* Concentric radar range rings */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
-              <div className="w-16 h-16 rounded-full border border-white/40" />
-              <div className="w-28 h-28 rounded-full border border-white/20 absolute" />
-              <div className="w-40 h-40 rounded-full border border-white/10 absolute" />
-              <div className="w-full h-px bg-white/20 absolute" />
-              <div className="h-full w-px bg-white/20 absolute" />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+              <div className="w-16 h-16 rounded-full border border-white/50" />
+              <div className="w-28 h-28 rounded-full border border-white/30 absolute" />
+              <div className="w-40 h-40 rounded-full border border-white/20 absolute" />
+              <div className="w-full h-px bg-white/30 absolute" />
+              <div className="h-full w-px bg-white/30 absolute" />
             </div>
 
             <span className="absolute bottom-1.5 right-1.5 flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-black/75 text-white border border-white/15 backdrop-blur-xs">
-              <CircleDot size={9} className="text-emerald-400 animate-pulse" /> Live Telemetry
+              <CircleDot size={9} className="text-accent animate-pulse" /> Live Telemetry
             </span>
 
-            <span className="absolute top-1.5 left-1.5 text-[9px] font-semibold text-white/90 bg-black/60 px-1.5 py-0.5 rounded truncate max-w-[170px]">
+            <span className="absolute top-1.5 left-1.5 text-[9px] font-semibold text-white/90 bg-black/60 px-2 py-0.5 rounded truncate max-w-[170px] backdrop-blur-xs">
               {stationName}
             </span>
           </div>
 
           {/* Color bar scale */}
-          <div className="w-3 rounded-full overflow-hidden flex flex-col-reverse shrink-0">
+          <div className="w-2.5 rounded-full overflow-hidden flex flex-col-reverse shrink-0 border border-border/50">
             {SCALE.map((c) => (
               <div key={c} className="flex-1" style={{ background: c }} />
             ))}
@@ -120,15 +121,16 @@ export function RadarPanel({ monitoredLocation, locationName, maxRisks, radarLiv
         </div>
 
         {/* Dynamic telemetry footer */}
-        <div className="pt-1 border-t border-border-soft flex items-center justify-between text-[11px]">
-          <span className={`font-semibold flex items-center gap-1 ${conditionColor}`}>
-            <Activity size={12} /> {condition}
+        <div className="pt-1 border-t border-border/60 flex items-center justify-between text-[11px]">
+          <span className={`font-semibold flex items-center gap-1.5 ${conditionColor}`}>
+            <Activity size={13} /> {condition}
           </span>
-          <span className="text-ink-faint font-mono text-[10px]">
+          <span className="text-ink-faint font-mono text-[10.5px]">
             {scanTime || "Live IST"}
           </span>
         </div>
       </CardBody>
-    </Card>
+    </BentoCard>
   );
 }
+

@@ -25,6 +25,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { LiveMap } from './LiveMap';
+import { apiFetch } from '@/config/api';
 
 interface LiveMapFullViewProps {
   heatmapData: any[];
@@ -80,7 +81,7 @@ export function LiveMapFullView({
 
   // Fetch real nationwide locations from backend
   useEffect(() => {
-    fetch("http://localhost:8000/api/monitored-locations")
+    apiFetch("/api/monitored-locations")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setLocations(data);
@@ -113,7 +114,7 @@ export function LiveMapFullView({
       }
 
       // Fetch true live prediction from backend for this exact coordinate
-      fetch(`http://localhost:8000/api/predict-coordinate/${activeLat}/${activeLon}?forecast_hour=${forecastHour}`)
+      apiFetch(`/api/predict-coordinate/${activeLat}/${activeLon}?forecast_hour=${forecastHour}`)
         .then((res) => res.json())
         .then((data) => {
           if (data && data.flash_flood !== undefined) {
@@ -172,7 +173,7 @@ export function LiveMapFullView({
     setIsSyncingXai(true);
     try {
       onCellClick(selectedLocation.lat, selectedLocation.lon);
-      const res = await fetch(`http://localhost:8000/api/xai/${selectedLocation.lat}/${selectedLocation.lon}?center_lat=${selectedLocation.lat}&center_lon=${selectedLocation.lon}`);
+      const res = await apiFetch(`/api/xai/${selectedLocation.lat}/${selectedLocation.lon}?center_lat=${selectedLocation.lat}&center_lon=${selectedLocation.lon}`);
       const data = await res.json();
       setXaiResult(data);
       setShowXaiDrawer(true);
@@ -289,7 +290,7 @@ export function LiveMapFullView({
                   onClick={() => setMapMode(mode)}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                     mapMode === mode
-                      ? "bg-blue-600 text-white shadow-[0_0_8px_rgba(37,99,235,0.4)]"
+                      ? "bg-accent text-white shadow-xs"
                       : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
@@ -304,7 +305,7 @@ export function LiveMapFullView({
                 onClick={() => setShowLegend(!showLegend)}
                 className={`p-2 rounded-xl border transition-all ${
                   showLegend 
-                    ? "bg-blue-600/30 border-blue-500 text-white shadow-md"
+                    ? "bg-accent/30 border-accent text-white shadow-xs"
                     : "border-white/10 bg-[#090e1a]/85 text-slate-300 hover:text-white hover:bg-white/10"
                 }`}
                 title="Toggle Risk Legend"
@@ -318,17 +319,17 @@ export function LiveMapFullView({
                   <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-white/10 pb-1">
                     RISK LEVELS
                   </div>
-                  <div className="space-y-1.5 text-xs text-slate-200">
+                  <div className="space-y-1.5 text-[11px]">
                     {[
-                      { label: "Extreme (>75%)", color: "#ef4444" },
-                      { label: "High (>55%)", color: "#f97316" },
-                      { label: "Moderate (>35%)", color: "#eab308" },
-                      { label: "Low (>20%)", color: "#22c55e" },
-                      { label: "Very Low (<20%)", color: "#10b981" },
-                    ].map((r) => (
-                      <div key={r.label} className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: r.color, boxShadow: `0 0 6px ${r.color}` }} />
-                        <span>{r.label}</span>
+                      { label: "Extreme", color: "bg-[#ef4444]", text: "Severe Flash / Burst" },
+                      { label: "High", color: "bg-[#f59e0b]", text: "Immediate Warning" },
+                      { label: "Moderate", color: "bg-[#eab308]", text: "Advisory" },
+                      { label: "Low", color: "bg-[#22c55e]", text: "Nominal Watch" },
+                    ].map((lvl) => (
+                      <div key={lvl.label} className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${lvl.color} shrink-0`} />
+                        <span className="font-bold text-slate-200">{lvl.label}</span>
+                        <span className="text-[9px] text-slate-400 ml-auto">{lvl.text}</span>
                       </div>
                     ))}
                   </div>
@@ -352,7 +353,7 @@ export function LiveMapFullView({
       {isZenMode && (
         <button
           onClick={() => setIsZenMode(false)}
-          className="absolute top-4 right-4 z-30 px-3 py-2 rounded-xl border border-blue-500/50 bg-[#090e1a]/90 text-blue-400 font-extrabold text-xs flex items-center gap-2 backdrop-blur-md shadow-2xl hover:bg-blue-600 hover:text-white transition-all"
+          className="absolute top-4 right-4 z-30 px-3 py-2 rounded-xl border border-accent/50 bg-[#090e1a]/90 text-accent font-extrabold text-xs flex items-center gap-2 backdrop-blur-md shadow-2xl hover:bg-accent hover:text-white transition-all"
         >
           <EyeOff size={14} /> Show HUD Overlays
         </button>
@@ -382,7 +383,7 @@ export function LiveMapFullView({
                 <button
                   onClick={() => setSidebarTab("intel")}
                   className={`flex-1 py-1 rounded-md transition-all text-center ${
-                    sidebarTab === "intel" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                    sidebarTab === "intel" ? "bg-accent text-white shadow-xs" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   Intelligence
@@ -390,7 +391,7 @@ export function LiveMapFullView({
                 <button
                   onClick={() => setSidebarTab("cities")}
                   className={`flex-1 py-1 rounded-md transition-all text-center ${
-                    sidebarTab === "cities" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                    sidebarTab === "cities" ? "bg-accent text-white shadow-xs" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   Hotspots ({locations.length})
@@ -398,7 +399,7 @@ export function LiveMapFullView({
                 <button
                   onClick={() => setSidebarTab("telemetry")}
                   className={`flex-1 py-1 rounded-md transition-all text-center ${
-                    sidebarTab === "telemetry" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                    sidebarTab === "telemetry" ? "bg-accent text-white shadow-xs" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   AI Engine
@@ -462,7 +463,7 @@ export function LiveMapFullView({
                   <button
                     onClick={handleSyncIntelligence}
                     disabled={isSyncingXai}
-                    className="w-full py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-extrabold text-xs transition-all shadow-[0_0_15px_rgba(37,99,235,0.4)] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75"
+                    className="w-full py-2.5 px-3 rounded-lg bg-accent hover:bg-accent/90 active:scale-[0.98] text-accent-contrast font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75"
                   >
                     {isSyncingXai ? (
                       <>
@@ -489,7 +490,7 @@ export function LiveMapFullView({
                         onClick={() => handleSelectLocation(loc)}
                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all ${
                           isSelected
-                            ? "bg-blue-600/20 border border-blue-500/50 text-white"
+                            ? "bg-accent/20 border border-accent/50 text-white"
                             : "text-slate-300 hover:bg-white/5 hover:text-white"
                         }`}
                       >
@@ -608,15 +609,15 @@ export function LiveMapFullView({
           SLIDE-OUT XAI PHYSICS INTELLIGENCE DRAWER
       ────────────────────────────────────────────── */}
       {showXaiDrawer && (
-        <div className="absolute top-16 right-4 z-40 w-full max-w-md max-h-[85vh] overflow-y-auto custom-scrollbar p-5 rounded-2xl border border-blue-500/40 bg-[#070b16]/95 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] flex flex-col gap-4 animate-in fade-in slide-in-from-right-6 duration-250">
+        <div className="absolute top-16 right-4 z-40 w-full max-w-md max-h-[85vh] overflow-y-auto custom-scrollbar p-5 rounded-2xl border border-border-soft bg-panel/95 backdrop-blur-2xl shadow-2xl flex flex-col gap-4 animate-in fade-in slide-in-from-right-6 duration-250">
           {/* Header */}
           <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+              <div className="w-9 h-9 rounded-xl bg-accent/20 border border-accent/40 flex items-center justify-center text-accent shadow-sm">
                 <Sparkles size={18} />
               </div>
               <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-blue-400">
+                <h3 className="text-xs font-black uppercase tracking-wider text-accent">
                   PHYSICS-INFORMED XAI ENGINE
                 </h3>
                 <h4 className="text-sm font-extrabold text-white leading-tight mt-0.5">
@@ -704,8 +705,8 @@ export function LiveMapFullView({
           </div>
 
           {/* Explainability Verdict */}
-          <div className="p-3.5 rounded-xl bg-blue-950/30 border border-blue-500/30 text-xs">
-            <span className="text-[10px] font-extrabold uppercase text-blue-400 tracking-wider block mb-1">
+          <div className="p-3.5 rounded-xl bg-accent/10 border border-accent/30 text-xs">
+            <span className="text-[10px] font-extrabold uppercase text-accent tracking-wider block mb-1">
               AI Convective Diagnosis
             </span>
             <p className="text-slate-200 leading-relaxed text-[11px]">
@@ -724,10 +725,10 @@ export function LiveMapFullView({
               <div>
                 <div className="flex justify-between text-[11px] mb-0.5">
                   <span className="text-slate-300">Moisture Convergence</span>
-                  <span className="font-mono font-bold text-blue-400">+42%</span>
+                  <span className="font-mono font-bold text-accent">+42%</span>
                 </div>
                 <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: "84%" }} />
+                  <div className="h-full bg-accent rounded-full" style={{ width: "84%" }} />
                 </div>
               </div>
               <div>

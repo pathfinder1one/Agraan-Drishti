@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import { 
   FileBarChart, 
   FileText, 
@@ -18,7 +19,7 @@ import {
   TrendingUp,
   MapPin
 } from "lucide-react";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { BentoCard, Card, CardHeader, CardBody } from "@/components/ui/card";
 
 interface ReportsAnalyticsViewProps {
   onTriggerAlert: () => void;
@@ -27,6 +28,16 @@ interface ReportsAnalyticsViewProps {
   maxRisks: Record<string, number>;
   selectedCell?: { lat: number; lon: number } | null;
 }
+
+/* ─── Animation presets ─── */
+const staggerContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+const fadeSlideUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
+};
 
 export function ReportsAnalyticsView({
   onTriggerAlert,
@@ -127,18 +138,35 @@ AUTHORITY: Agraan AI Pre-Impact Defense System
     URL.revokeObjectURL(url);
   };
 
+  const kpiCards = [
+    { label: "Total SITREPs Compiled", value: "148", sub: "100% Automated Format Compliance", icon: FileText, color: "accent" as const },
+    { label: "Citizen Reach (5km Radius)", value: "68,870", sub: "SMS, WhatsApp & Voice Broadcast", icon: Bell, color: "accent" as const },
+    { label: "Offline BLE Mesh Hops", value: "14 Nodes", sub: "Zero Cell Signal P2P Protocol", icon: Radio, color: "accent" as const },
+    { label: "M2M SCADA Interlocks", value: "4 Systems", sub: "Dam Gates, Kavach & VMS Matrix", icon: Cpu, color: "amber" as const },
+  ];
+
+  const colorMap = {
+    accent: { iconBg: "bg-accent/12", iconBorder: "border-accent/25", iconText: "text-accent", valueText: "text-accent" },
+    amber: { iconBg: "bg-amber-500/12", iconBorder: "border-amber-500/25", iconText: "text-amber-500", valueText: "text-amber-500 dark:text-amber-400" },
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 text-ink">
+    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 text-ink max-w-[1920px] mx-auto w-full">
       {/* Top Banner with Action Dispatchers */}
-      <div className="bg-panel border border-border p-5 rounded-2xl shadow-lg flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
-        <div className="space-y-1 max-w-2xl">
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="bg-panel border border-border p-5 rounded-[0.66rem] shadow-xs flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5"
+      >
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-lg bg-accent/12 text-accent border border-accent/25">
               <FileBarChart size={22} />
             </span>
-            <h1 className="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-lg font-extrabold tracking-tight text-ink flex items-center gap-2 flex-wrap">
               Reports &amp; Situation Analytics Command
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-accent/12 text-accent border border-accent/25 font-bold">
                 NDRF SITREP ENGINE v2.4
               </span>
             </h1>
@@ -148,259 +176,233 @@ AUTHORITY: Agraan AI Pre-Impact Defense System
           </p>
         </div>
 
-        {/* PRIMARY ACTION BUTTONS (Relocated from Dashboard) */}
+        {/* PRIMARY ACTION BUTTONS */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto shrink-0">
           <button 
             onClick={onTriggerAlert}
-            className="flex items-center justify-center gap-2 px-5 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-extrabold text-xs tracking-wide transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)] active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-destructive hover:bg-destructive/90 text-white rounded-lg font-extrabold text-xs tracking-wide transition-all shadow-sm active:scale-[0.98] cursor-pointer"
           >
             <ShieldAlert size={16} />
             DISPATCH MULTI-CHANNEL &amp; BLE MESH ALERT
           </button>
           <button 
             onClick={onTriggerSitrep}
-            className="flex items-center justify-center gap-2 px-5 py-3 bg-panel-alt hover:bg-panel border border-slate-600 hover:border-slate-500 text-white rounded-xl font-extrabold text-xs tracking-wide transition-all shadow-md active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-secondary/60 hover:bg-secondary border border-border text-ink rounded-lg font-extrabold text-xs tracking-wide transition-all shadow-sm active:scale-[0.98] cursor-pointer"
           >
-            <FileText size={16} className="text-blue-400" />
+            <FileText size={16} className="text-accent" />
             VIEW AUTOMATED NDRF SITREP REPORT
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* KPI Performance Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-panel border border-border flex items-center justify-between">
-          <div>
-            <span className="text-[10.5px] uppercase font-bold text-ink-faint tracking-wider">Total SITREPs Compiled</span>
-            <div className="text-2xl font-black font-mono text-white mt-0.5">148</div>
-            <span className="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
-              <CheckCircle2 size={11} /> 100% Automated Format Compliance
-            </span>
-          </div>
-          <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-            <FileText size={20} />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-panel border border-border flex items-center justify-between">
-          <div>
-            <span className="text-[10.5px] uppercase font-bold text-ink-faint tracking-wider">Citizen Reach (5km Radius)</span>
-            <div className="text-2xl font-black font-mono text-white mt-0.5">68,870</div>
-            <span className="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
-              <CheckCircle2 size={11} /> SMS, WhatsApp &amp; Voice Broadcast
-            </span>
-          </div>
-          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Bell size={20} />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-panel border border-border flex items-center justify-between">
-          <div>
-            <span className="text-[10.5px] uppercase font-bold text-ink-faint tracking-wider">Offline BLE Mesh Hops</span>
-            <div className="text-2xl font-black font-mono text-emerald-400 mt-0.5">14 Nodes</div>
-            <span className="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
-              <Radio size={11} /> Zero Cell Signal P2P Protocol
-            </span>
-          </div>
-          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Radio size={20} />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-panel border border-border flex items-center justify-between">
-          <div>
-            <span className="text-[10.5px] uppercase font-bold text-ink-faint tracking-wider">M2M SCADA Interlocks</span>
-            <div className="text-2xl font-black font-mono text-purple-400 mt-0.5">4 Systems</div>
-            <span className="text-[10px] text-purple-300 flex items-center gap-1 mt-0.5">
-              <Cpu size={11} /> Dam Gates, Kavach &amp; VMS Matrix
-            </span>
-          </div>
-          <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-            <Cpu size={20} />
-          </div>
-        </div>
-      </div>
+      <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpiCards.map((kpi, idx) => {
+          const c = colorMap[kpi.color];
+          return (
+            <motion.div key={kpi.label} variants={fadeSlideUp}>
+              <BentoCard className="p-4 flex items-center justify-between">
+                <div>
+                  <span className="text-[10.5px] uppercase font-bold text-ink-faint tracking-wider">{kpi.label}</span>
+                  <div className={`text-2xl font-black font-mono ${c.valueText} mt-0.5`}>{kpi.value}</div>
+                  <span className="text-[10px] text-accent flex items-center gap-1 mt-0.5">
+                    <CheckCircle2 size={11} /> {kpi.sub}
+                  </span>
+                </div>
+                <div className={`p-2.5 rounded-lg ${c.iconBg} ${c.iconText} border ${c.iconBorder}`}>
+                  <kpi.icon size={20} />
+                </div>
+              </BentoCard>
+            </motion.div>
+          );
+        })}
+      </motion.div>
 
       {/* Main SITREP Documents List */}
-      <Card>
-        <CardHeader
-          icon={FileText}
-          title="Official Situation Reports (NDRF / SDMA Archive)"
-          right={
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onTriggerSitrep}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
-              >
-                <FileText size={13} /> View Active SITREP
-              </button>
-            </div>
-          }
-        />
-        <CardBody className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-panel-alt/60 text-ink-dim border-b border-border/80 text-[11px] uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Report ID</th>
-                  <th className="py-3 px-4">Sector / Catchment</th>
-                  <th className="py-3 px-4">Hazard Classification</th>
-                  <th className="py-3 px-4">Severity</th>
-                  <th className="py-3 px-4">Exposed Pop</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {sitrepRecords.map((r) => (
-                  <tr key={r.id} className="hover:bg-panel-alt/40 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-blue-400">
-                      <div className="flex items-center gap-1.5">
-                        <span>{r.id}</span>
-                        <button 
-                          onClick={() => handleCopy(r.id)} 
-                          className="text-ink-faint hover:text-white"
-                          title="Copy Report ID"
-                        >
-                          {copiedId === r.id ? <CheckCircle2 size={12} className="text-emerald-400" /> : <Share2 size={12} />}
-                        </button>
-                      </div>
-                      <div className="text-[10px] text-ink-faint font-normal">{r.time}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-white font-medium">
-                      <div className="flex items-center gap-1">
-                        <MapPin size={12} className="text-ink-dim shrink-0" />
-                        <span className="truncate max-w-[180px]">{r.location}</span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-ink-dim">{r.hazard}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${
-                        r.severity.includes("RED")
-                          ? "bg-red-500/20 text-red-400 border-red-500/30"
-                          : r.severity.includes("ORANGE")
-                          ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                          : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                      }`}>
-                        {r.severity}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-white">
-                      {r.populationExposed.toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-[11px] text-emerald-400 font-medium">
-                      {r.status}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleDownloadSitrep(r)}
-                          className="px-2 py-1 rounded bg-panel-alt hover:bg-panel border border-border text-emerald-400 hover:text-emerald-300 text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
-                          title="Download Official SITREP Text Document"
-                        >
-                          <Download size={11} /> Export
-                        </button>
-                        <button
-                          onClick={onTriggerSitrep}
-                          className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-400 hover:text-white text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          Inspect ➔
-                        </button>
-                      </div>
-                    </td>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.15 }}>
+        <BentoCard>
+          <CardHeader
+            icon={FileText}
+            title="Official Situation Reports (NDRF / SDMA Archive)"
+            right={
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onTriggerSitrep}
+                  className="px-3 py-1 bg-accent hover:bg-accent/90 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <FileText size={13} /> View Active SITREP
+                </button>
+              </div>
+            }
+          />
+          <CardBody className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-secondary/40 text-ink-dim border-b border-border text-[11px] uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Report ID</th>
+                    <th className="py-3 px-4">Sector / Catchment</th>
+                    <th className="py-3 px-4">Hazard Classification</th>
+                    <th className="py-3 px-4">Severity</th>
+                    <th className="py-3 px-4">Exposed Pop</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardBody>
-      </Card>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {sitrepRecords.map((r) => (
+                    <tr key={r.id} className="hover:bg-secondary/30 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-accent">
+                        <div className="flex items-center gap-1.5">
+                          <span>{r.id}</span>
+                          <button 
+                            onClick={() => handleCopy(r.id)} 
+                            className="text-ink-faint hover:text-ink cursor-pointer"
+                            title="Copy Report ID"
+                          >
+                            {copiedId === r.id ? <CheckCircle2 size={12} className="text-accent" /> : <Share2 size={12} />}
+                          </button>
+                        </div>
+                        <div className="text-[10px] text-ink-faint font-normal">{r.time}</div>
+                      </td>
+                      <td className="py-3.5 px-4 text-ink font-medium">
+                        <div className="flex items-center gap-1">
+                          <MapPin size={12} className="text-ink-dim shrink-0" />
+                          <span className="truncate max-w-[180px]">{r.location}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-ink-dim">{r.hazard}</td>
+                      <td className="py-3.5 px-4">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${
+                          r.severity.includes("RED")
+                            ? "bg-destructive/12 text-destructive border-destructive/25"
+                            : r.severity.includes("ORANGE")
+                            ? "bg-amber-500/12 text-amber-600 dark:text-amber-400 border-amber-500/25"
+                            : "bg-accent/12 text-accent border-accent/25"
+                        }`}>
+                          {r.severity}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-ink">
+                        {r.populationExposed.toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4 text-[11px] text-accent font-medium">
+                        {r.status}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleDownloadSitrep(r)}
+                            className="px-2 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border text-accent hover:text-accent text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
+                            title="Download Official SITREP Text Document"
+                          >
+                            <Download size={11} /> Export
+                          </button>
+                          <button
+                            onClick={onTriggerSitrep}
+                            className="px-2 py-1 rounded-lg bg-accent/10 hover:bg-accent/15 border border-accent/25 text-accent text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            Inspect ➔
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardBody>
+        </BentoCard>
+      </motion.div>
 
       {/* Dispatch Channel Logs & Verification Suite */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Multi-Channel Distribution Breakdown */}
-        <Card>
-          <CardHeader icon={Bell} title="Multi-Channel Dispatch Reach Breakdown" />
-          <CardBody className="space-y-3 p-4 text-xs">
-            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-white block">Channel 1: Citizens 5km Radius</span>
-                <span className="text-[11px] text-blue-300/80">SMS Broadcast, WhatsApp Cloud API &amp; Hindi Voice Siren</span>
+        <motion.div variants={fadeSlideUp}>
+          <BentoCard>
+            <CardHeader icon={Bell} title="Multi-Channel Dispatch Reach Breakdown" />
+            <CardBody className="space-y-3 p-4 text-xs">
+              <div className="p-3 rounded-lg bg-accent/8 border border-accent/20 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-ink block">Channel 1: Citizens 5km Radius</span>
+                  <span className="text-[11px] text-ink-dim">SMS Broadcast, WhatsApp Cloud API &amp; Hindi Voice Siren</span>
+                </div>
+                <span className="font-mono font-bold text-accent text-sm">98.4% Sent</span>
               </div>
-              <span className="font-mono font-bold text-blue-400 text-sm">98.4% Sent</span>
-            </div>
 
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-white block">Channel 2: DM Office &amp; First Responders</span>
-                <span className="text-[11px] text-red-300/80">State Emergency Operation Center (SEOC) REST Webhook</span>
+              <div className="p-3 rounded-lg bg-destructive/8 border border-destructive/20 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-ink block">Channel 2: DM Office &amp; First Responders</span>
+                  <span className="text-[11px] text-ink-dim">State Emergency Operation Center (SEOC) REST Webhook</span>
+                </div>
+                <span className="font-mono font-bold text-destructive text-sm">42 Endpoints</span>
               </div>
-              <span className="font-mono font-bold text-red-400 text-sm">42 Endpoints</span>
-            </div>
 
-            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-white block">Channel 3: Offline P2P Mesh Relay</span>
-                <span className="text-[11px] text-emerald-300/80">Bluetooth Low Energy (BLE) multi-hop without cell towers</span>
+              <div className="p-3 rounded-lg bg-accent/8 border border-accent/20 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-ink block">Channel 3: Offline P2P Mesh Relay</span>
+                  <span className="text-[11px] text-ink-dim">Bluetooth Low Energy (BLE) multi-hop without cell towers</span>
+                </div>
+                <span className="font-mono font-bold text-accent text-sm">14 Hops</span>
               </div>
-              <span className="font-mono font-bold text-emerald-400 text-sm">14 Hops</span>
-            </div>
 
-            <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-white block">Channel 4: M2M SCADA Interlocks</span>
-                <span className="text-[11px] text-purple-300/80">IEC 60870-5-104 Dam Sluices, Kavach Railway Speed Cap</span>
+              <div className="p-3 rounded-lg bg-purple-500/8 border border-purple-500/20 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-ink block">Channel 4: M2M SCADA Interlocks</span>
+                  <span className="text-[11px] text-ink-dim">IEC 60870-5-104 Dam Sluices, Kavach Railway Speed Cap</span>
+                </div>
+                <span className="font-mono font-bold text-purple-500 dark:text-purple-400 text-sm">4 Systems</span>
               </div>
-              <span className="font-mono font-bold text-purple-400 text-sm">4 Systems</span>
-            </div>
-          </CardBody>
-        </Card>
+            </CardBody>
+          </BentoCard>
+        </motion.div>
 
         {/* Verification & Accuracy Audit Card */}
-        <Card>
-          <CardHeader icon={TrendingUp} title="Situational Audit & Model Accuracy" />
-          <CardBody className="space-y-3.5 p-4 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-lg bg-panel-alt border border-border">
-                <span className="text-[10px] text-ink-faint block uppercase font-bold">Historical Test FAR</span>
-                <span className="text-xl font-black text-emerald-400 font-mono">14.2%</span>
-                <span className="text-[10px] text-ink-dim block mt-0.5">vs 38.5% standard NWP baseline</span>
+        <motion.div variants={fadeSlideUp}>
+          <BentoCard>
+            <CardHeader icon={TrendingUp} title="Situational Audit & Model Accuracy" />
+            <CardBody className="space-y-3.5 p-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-secondary/40 border border-border">
+                  <span className="text-[10px] text-ink-faint block uppercase font-bold">Historical Test FAR</span>
+                  <span className="text-xl font-black text-accent font-mono">14.2%</span>
+                  <span className="text-[10px] text-ink-dim block mt-0.5">vs 38.5% standard NWP baseline</span>
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/40 border border-border">
+                  <span className="text-[10px] text-ink-faint block uppercase font-bold">Critical Success Index</span>
+                  <span className="text-xl font-black text-accent font-mono">0.84</span>
+                  <span className="text-[10px] text-ink-dim block mt-0.5">Validated on Uttarakhand/Kerala sets</span>
+                </div>
               </div>
-              <div className="p-3 rounded-lg bg-panel-alt border border-border">
-                <span className="text-[10px] text-ink-faint block uppercase font-bold">Critical Success Index</span>
-                <span className="text-xl font-black text-blue-400 font-mono">0.84</span>
-                <span className="text-[10px] text-ink-dim block mt-0.5">Validated on Uttarakhand/Kerala sets</span>
-              </div>
-            </div>
 
-            <div className="p-3 rounded-lg bg-panel-alt border border-border space-y-1.5">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-ink-dim">Lead Time Advantage:</span>
-                <span className="font-bold text-white">+2 to +4 Hours</span>
+              <div className="p-3 rounded-lg bg-secondary/40 border border-border space-y-1.5">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-ink-dim">Lead Time Advantage:</span>
+                  <span className="font-bold text-ink">+2 to +4 Hours</span>
+                </div>
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-ink-dim">Spatial Resolution:</span>
+                  <span className="font-bold text-ink">~1.2 km micro-basin</span>
+                </div>
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-ink-dim">Inference Latency:</span>
+                  <span className="font-bold text-accent">&lt;45 ms (PyTorch ConvLSTM)</span>
+                </div>
               </div>
-              <div className="flex justify-between text-[11px]">
-                <span className="text-ink-dim">Spatial Resolution:</span>
-                <span className="font-bold text-white">~1.2 km micro-basin</span>
-              </div>
-              <div className="flex justify-between text-[11px]">
-                <span className="text-ink-dim">Inference Latency:</span>
-                <span className="font-bold text-emerald-400">&lt;45 ms (PyTorch ConvLSTM)</span>
-              </div>
-            </div>
 
-            <div className="p-2.5 rounded-lg bg-panel-alt/80 border border-border text-[10.5px] text-ink-dim flex items-center justify-between">
-              <span>Standard Format: NDMA SOP v3.2</span>
-              <button 
-                onClick={onTriggerSitrep}
-                className="underline text-blue-400 hover:text-white font-bold"
-              >
-                Generate Live SITREP Now ➔
-              </button>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
+              <div className="p-2.5 rounded-lg bg-secondary/30 border border-border text-[10.5px] text-ink-dim flex items-center justify-between">
+                <span>Standard Format: NDMA SOP v3.2</span>
+                <button 
+                  onClick={onTriggerSitrep}
+                  className="underline text-accent hover:text-accent/80 font-bold cursor-pointer"
+                >
+                  Generate Live SITREP Now ➔
+                </button>
+              </div>
+            </CardBody>
+          </BentoCard>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

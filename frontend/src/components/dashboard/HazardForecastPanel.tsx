@@ -15,8 +15,9 @@ import {
   Milestone
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { Card, BentoCard, CardHeader, CardBody } from "@/components/ui/card";
 import { Badge, LEVEL_COLOR, levelFromLabel } from "@/components/ui/badge";
+import { apiFetch } from "@/config/api";
 
 const HAZARD_DEFS = [
   { key: "flash_flood", name: "Flash Flood", icon: Waves },
@@ -44,7 +45,7 @@ export function HazardForecastPanel({ maxRisks, selectedCell, monitoredLocation,
 
   // Fetch Confidence-Graded Tiers & Reliability data
   useEffect(() => {
-    fetch(`http://localhost:8000/api/hazard-intelligence?lat=${lat}&lon=${lon}&forecast_hour=${forecastHour}`)
+    apiFetch(`/api/hazard-intelligence?lat=${lat}&lon=${lon}&forecast_hour=${forecastHour}`)
       .then(res => res.json())
       .then(data => setIntelligence(data))
       .catch(() => {});
@@ -100,68 +101,98 @@ export function HazardForecastPanel({ maxRisks, selectedCell, monitoredLocation,
     reasoning: "Triple convergence of CAPE, moisture flux & INSAT-3DR CTT confirms genuine storm cell."
   };
 
+  // Find highest risk for KPI hero
+  const topHazard = dynamicForecast.reduce((max, h) => (h.value > max.value ? h : max), dynamicForecast[0] || { name: "Normal", value: 0, level: "low", tier: "NOMINAL" });
+  const topColor = LEVEL_COLOR[levelFromLabel(topHazard.level)] || "#246b38";
+
   return (
-    <Card>
+    <BentoCard glow={topHazard.value > 60 ? "danger" : topHazard.value > 30 ? "amber" : "accent"}>
       <CardHeader
         icon={TriangleAlert}
-        title="Hazard Forecast"
+        title="Hazard Intelligence & Forecast"
+        subtitle="AI ConvLSTM 6-Step Multi-Hazard Predictive Engine"
         right={
           <div className="flex items-center gap-1 bg-panel-alt p-0.5 rounded-lg border border-border text-[10px] shrink-0">
             <button 
               onClick={() => setActiveTab("probability")}
-              className={`px-2 py-0.5 rounded font-medium transition-all ${activeTab === "probability" ? "bg-blue-600 text-white" : "text-ink-faint hover:text-ink"}`}
+              className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${activeTab === "probability" ? "bg-accent text-white shadow-xs" : "text-ink-faint hover:text-ink"}`}
             >
               Probabilities
             </button>
             <button 
               onClick={() => setActiveTab("tiers")}
-              className={`px-2 py-0.5 rounded font-medium transition-all ${activeTab === "tiers" ? "bg-blue-600 text-white" : "text-ink-faint hover:text-ink"}`}
+              className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${activeTab === "tiers" ? "bg-accent text-white shadow-xs" : "text-ink-faint hover:text-ink"}`}
             >
-              Tiers
+              Tiers &amp; SOP
             </button>
           </div>
         }
       />
       
-      <CardBody className="space-y-3">
+      <CardBody className="space-y-3.5">
+        {/* KPI Hero Metric Card */}
+        <div className="p-3 rounded-lg bg-panel-alt border border-border flex items-center justify-between gap-3 shadow-xs">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint block">Peak Imminent Hazard</span>
+            <span className="text-lg font-black text-ink tracking-tight flex items-center gap-1.5 mt-0.5">
+              <span className="w-2.5 h-2.5 rounded-full animate-ping shrink-0" style={{ background: topColor }} />
+              <span className="truncate">{topHazard.name}</span>
+            </span>
+          </div>
+          <div className="text-right shrink-0">
+            <span className="text-2xl font-black font-mono tracking-tight" style={{ color: topColor }}>
+              {topHazard.value}%
+            </span>
+            <span className={`block text-[9px] font-extrabold px-1.5 py-0.2 rounded-full uppercase text-center mt-0.5 ${
+              topHazard.tier === "EMERGENCY" ? "bg-destructive/15 text-destructive border border-destructive/30" :
+              topHazard.tier === "WARNING" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30" :
+              "bg-secondary text-accent border border-accent/20"
+            }`}>
+              {topHazard.tier}
+            </span>
+          </div>
+        </div>
+
         {/* Self-Aware Forecast Reliability & Bust Detection Status */}
-        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-panel-alt border border-border text-[10.5px]">
+        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-panel-alt/80 border border-border text-[10.5px]">
           <div className="flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${reliability.bust_risk === "LOW" ? "bg-emerald-400" : "bg-amber-400"} animate-pulse`} />
+            <span className={`w-2 h-2 rounded-full ${reliability.bust_risk === "LOW" ? "bg-accent" : "bg-muted-amber"} animate-pulse`} />
             <span className="text-ink-dim">Forecast Reliability:</span>
             <span className="font-bold text-ink">{(reliability.score * 100).toFixed(0)}%</span>
-            <span className="text-emerald-400 font-mono text-[9.5px]">[{reliability.stability_status}]</span>
+            <span className="text-accent font-mono text-[9.5px]">[{reliability.stability_status}]</span>
           </div>
-          <span className="text-[9.5px] text-ink-faint">Bust Risk: <strong>{reliability.bust_risk}</strong></span>
+          <span className="text-[9.5px] text-ink-faint">Bust Risk: <strong className="text-ink">{reliability.bust_risk}</strong></span>
         </div>
 
         {activeTab === "probability" ? (
           <>
-            {dynamicForecast.map((h) => {
-              const Icon = h.icon;
-              const color = LEVEL_COLOR[levelFromLabel(h.level)];
-              return (
-                <div key={h.name} className="flex items-center gap-2">
-                  <Icon size={14} style={{ color }} className="shrink-0" />
-                  <span className="flex-1 text-[12px] truncate">{h.name}</span>
-                  <div className="w-14 h-1.5 rounded-full overflow-hidden bg-border-soft">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${h.value}%`, background: color }}
-                    />
+            <div className="space-y-2">
+              {dynamicForecast.map((h) => {
+                const Icon = h.icon;
+                const color = LEVEL_COLOR[levelFromLabel(h.level)];
+                return (
+                  <div key={h.name} className="flex items-center gap-2">
+                    <Icon size={14} style={{ color }} className="shrink-0" />
+                    <span className="flex-1 text-[12px] font-medium text-ink truncate">{h.name}</span>
+                    <div className="w-16 h-2 rounded-full overflow-hidden bg-border-soft">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${h.value}%`, background: color }}
+                      />
+                    </div>
+                    <span className="text-[11px] w-9 text-right text-ink font-mono font-bold">{h.value}%</span>
+                    <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                      h.tier === "EMERGENCY" ? "bg-destructive/15 text-destructive border border-destructive/30" :
+                      h.tier === "WARNING" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30" :
+                      h.tier === "WATCH" ? "bg-[#f5b35a]/15 text-amber-800 dark:text-amber-300 border border-[#f5b35a]/30" :
+                      "bg-secondary text-accent"
+                    }`}>
+                      {h.tier}
+                    </span>
                   </div>
-                  <span className="text-[11px] w-8 text-right text-ink-dim font-mono">{h.value}%</span>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                    h.tier === "EMERGENCY" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
-                    h.tier === "WARNING" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
-                    h.tier === "WATCH" ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30" :
-                    "bg-slate-500/20 text-slate-300"
-                  }`}>
-                    {h.tier}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
 
             <div className="h-28 pt-1 -mx-1">
               <ResponsiveContainer width="100%" height="100%">
@@ -171,19 +202,20 @@ export function HazardForecastPanel({ maxRisks, selectedCell, monitoredLocation,
                     type="category"
                     dataKey="name"
                     width={76}
-                    tick={{ fill: "#8b95ab", fontSize: 9.5 }}
+                    tick={{ fill: "var(--color-ink-dim)", fontSize: 9.5 }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <Tooltip
-                    cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                    cursor={{ fill: "rgba(0,0,0,0.04)" }}
                     contentStyle={{
-                      background: "#0f1420",
-                      border: "1px solid #1c2434",
-                      borderRadius: 8,
+                      background: "var(--color-panel)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "0.66rem",
                       fontSize: 11,
+                      color: "var(--color-ink)",
                     }}
-                    labelStyle={{ color: "#e7ebf3" }}
+                    labelStyle={{ color: "var(--color-ink)", fontWeight: 700 }}
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={8}>
                     {chartData.map((d) => (
@@ -198,22 +230,22 @@ export function HazardForecastPanel({ maxRisks, selectedCell, monitoredLocation,
           /* CONFIDENCE-GRADED ALERT TIERS & ROLE-BASED ACTION PROTOCOLS */
           <div className="space-y-2.5">
             {/* Role Switcher */}
-            <div className="flex gap-1 border-b border-border pb-1.5 text-[11px]">
+            <div className="flex gap-1 border-b border-border-soft pb-1.5 text-[11px]">
               <button 
                 onClick={() => setActiveRole("citizen")}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all ${activeRole === "citizen" ? "bg-blue-600/20 text-blue-400 font-bold border border-blue-500/30" : "text-ink-dim hover:text-white"}`}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${activeRole === "citizen" ? "bg-secondary text-accent border border-accent/25 shadow-xs" : "text-ink-dim hover:text-ink"}`}
               >
                 <User size={12} /> Citizen Advisory
               </button>
               <button 
                 onClick={() => setActiveRole("responder")}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all ${activeRole === "responder" ? "bg-blue-600/20 text-blue-400 font-bold border border-blue-500/30" : "text-ink-dim hover:text-white"}`}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${activeRole === "responder" ? "bg-secondary text-accent border border-accent/25 shadow-xs" : "text-ink-dim hover:text-ink"}`}
               >
                 <Truck size={12} /> NDRF / SDRF SOP
               </button>
               <button 
                 onClick={() => setActiveRole("farmer")}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all ${activeRole === "farmer" ? "bg-blue-600/20 text-blue-400 font-bold border border-blue-500/30" : "text-ink-dim hover:text-white"}`}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${activeRole === "farmer" ? "bg-secondary text-accent border border-accent/25 shadow-xs" : "text-ink-dim hover:text-ink"}`}
               >
                 <Sprout size={12} /> Farmer Advisory
               </button>
@@ -224,11 +256,11 @@ export function HazardForecastPanel({ maxRisks, selectedCell, monitoredLocation,
               {Object.entries(tiersData).map(([key, data]: [string, any]) => {
                 const isEmergency = data.tier === "EMERGENCY";
                 const isWarning = data.tier === "WARNING";
-                const borderCol = isEmergency ? "border-red-500/40 bg-red-500/5" : (isWarning ? "border-amber-500/40 bg-amber-500/5" : "border-border bg-panel-alt");
-                const badgeCol = isEmergency ? "bg-red-500 text-white" : (isWarning ? "bg-amber-500 text-black font-bold" : "bg-blue-500 text-white");
+                const borderCol = isEmergency ? "border-destructive/40 bg-destructive/5" : (isWarning ? "border-amber-500/40 bg-amber-500/5" : "border-border bg-panel-alt");
+                const badgeCol = isEmergency ? "bg-destructive text-destructive-foreground" : (isWarning ? "bg-[#f5b35a] text-[#1a261d] font-bold" : "bg-secondary text-accent font-bold");
 
                 return (
-                  <div key={key} className={`p-2.5 rounded-lg border ${borderCol} space-y-1.5`}>
+                  <div key={key} className={`p-2.5 rounded-lg border ${borderCol} space-y-1.5 shadow-xs`}>
                     <div className="flex items-center justify-between">
                       <span className="text-[12px] font-bold text-ink capitalize">{key.replace('_', ' ')}</span>
                       <div className="flex items-center gap-1.5">
@@ -248,6 +280,6 @@ export function HazardForecastPanel({ maxRisks, selectedCell, monitoredLocation,
           </div>
         )}
       </CardBody>
-    </Card>
+    </BentoCard>
   );
 }

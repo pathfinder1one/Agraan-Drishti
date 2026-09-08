@@ -22,9 +22,11 @@ from typing import Dict, List, Any, Optional
 try:
     from backend.api.dynamic_infrastructure import lookup_district_state
     from backend.api.realtime_weather import fetch_realtime_weather
+    from backend.api.sms_db import save_dispatch_record, get_persisted_dispatch_history
 except ImportError:
     from api.dynamic_infrastructure import lookup_district_state
     from api.realtime_weather import fetch_realtime_weather
+    from api.sms_db import save_dispatch_record, get_persisted_dispatch_history
 
 logger = logging.getLogger("DisasterAlertsService")
 
@@ -64,9 +66,11 @@ def fetch_sachet_rss_alerts() -> List[Dict[str, Any]]:
     if _SACHET_CACHE["alerts"] and (now - _SACHET_CACHE["timestamp"]) < SACHET_CACHE_TTL:
         return _SACHET_CACHE["alerts"]
 
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
+    try:
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        ctx = ssl.create_default_context()
 
     req = urllib.request.Request(
         NDMA_SACHET_RSS_URL,
@@ -438,9 +442,13 @@ def dispatch_alert_multichannel(payload: Dict[str, Any]) -> Dict[str, Any]:
         "mesh_packet_hash": packet_hash,
         "channels_receipt": channels_receipt
     }
-    DISPATCH_AUDIT_LEDGER.insert(0, record)
+    # Persist to SQLite database
+    try:
+        save_dispatch_record(record)
+    except Exception as e:
+        logger.error(f"Failed to persist dispatch to SQLite: {e}")
 
-    # Keep ledger size reasonable
+    DISPATCH_AUDIT_LEDGER.insert(0, record)
     if len(DISPATCH_AUDIT_LEDGER) > 100:
         DISPATCH_AUDIT_LEDGER.pop()
 
@@ -455,5 +463,11 @@ def dispatch_alert_multichannel(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_dispatch_history() -> List[Dict[str, Any]]:
-    """Returns the full dispatch audit ledger."""
+    """Returns the full dispatch audit ledger, reading from persisted SQLite with in-memory fallback."""
+    try:
+        persisted = get_persisted_dispatch_history()
+        if persisted:
+            return persisted
+    except Exception as e:
+        logger.error(f"Failed to retrieve dispatch history from SQLite: {e}")
     return DISPATCH_AUDIT_LEDGER

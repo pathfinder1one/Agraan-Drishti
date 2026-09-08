@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldCheck, MessageSquarePlus, Volume2, Award, CheckCircle2, AlertTriangle, Send, X, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/config/api";
 
 interface InnovationHubProps {
   monitoredLocation: { lat: number; lon: number };
@@ -31,7 +32,7 @@ export function InnovationHub({ monitoredLocation, locationName, selectedCell }:
 
   // Load ground reports
   useEffect(() => {
-    fetch("http://localhost:8000/api/ground-reports")
+    apiFetch("/api/ground-reports")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setRecentReports(data);
@@ -41,7 +42,7 @@ export function InnovationHub({ monitoredLocation, locationName, selectedCell }:
 
   // Load Model Report Card
   useEffect(() => {
-    fetch("http://localhost:8000/api/model-report-card")
+    apiFetch("/api/model-report-card")
       .then(res => res.json())
       .then(data => setReportCard(data))
       .catch(() => {});
@@ -84,7 +85,7 @@ export function InnovationHub({ monitoredLocation, locationName, selectedCell }:
         reporter_role: reporterRole
       };
 
-      const res = await fetch("http://localhost:8000/api/ground-report", {
+      const res = await apiFetch("/api/ground-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -100,54 +101,59 @@ export function InnovationHub({ monitoredLocation, locationName, selectedCell }:
 
   return (
     <>
-      {/* Quick Action Bar for Innovations */}
-      <div className="flex flex-wrap items-center gap-2.5 p-3 rounded-xl bg-panel border border-border">
-        <div className="flex items-center gap-2 pr-3 border-r border-border-soft text-[12.5px] font-semibold text-ink">
-          <Radio size={15} className="text-blue-400 animate-pulse" />
-          <span>Innovation Deck:</span>
+      {/* Modern Sleek Action Deck */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-[0.66rem] bg-panel border border-border shadow-xs">
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-ink">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent" />
+          </span>
+          <span className="tracking-wide">Field Operations & Intelligence Deck</span>
         </div>
 
-        {/* 1. Ground Truth Feedback Loop */}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="bg-panel-alt hover:bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[12px] gap-1.5"
-          onClick={() => {
-            setSubmissionResult(null);
-            setShowReportModal(true);
-          }}
-        >
-          <MessageSquarePlus size={13} />
-          <span>Report Ground Truth</span>
-          <span className="px-1.5 py-0.2 bg-blue-500/20 text-[10px] rounded-full font-mono">{recentReports.length}</span>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 1. Ground Truth Feedback Loop */}
+          <motion.button 
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-panel-alt hover:bg-secondary text-ink border border-border text-[11.5px] font-semibold transition-colors shadow-xs cursor-pointer"
+            onClick={() => {
+              setSubmissionResult(null);
+              setShowReportModal(true);
+            }}
+          >
+            <MessageSquarePlus size={13} className="text-accent" />
+            <span>Report Ground Truth</span>
+            <span className="px-1.5 py-0.2 bg-secondary text-accent text-[10px] rounded-full font-mono font-bold">{recentReports.length}</span>
+          </motion.button>
 
-        {/* 2. Voice Alert Siren (Multi-Channel Fallback) */}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className={`border text-[12px] gap-1.5 transition-all ${
-            isPlayingSiren 
-              ? "bg-red-500 text-white border-red-400 animate-bounce" 
-              : "bg-panel-alt hover:bg-amber-500/10 text-amber-400 border-amber-500/20"
-          }`}
-          onClick={() => triggerVoiceSiren()}
-        >
-          <Volume2 size={13} className={isPlayingSiren ? "animate-spin" : ""} />
-          <span>{isPlayingSiren ? "Broadcasting Siren..." : "Voice Siren (Hindi Audio)"}</span>
-        </Button>
+          {/* 2. Voice Alert Siren (Multi-Channel Fallback) */}
+          <motion.button 
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.98 }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11.5px] font-semibold transition-all shadow-xs cursor-pointer ${
+              isPlayingSiren 
+                ? "bg-destructive text-destructive-foreground border-destructive animate-pulse" 
+                : "bg-panel-alt hover:bg-amber-500/10 text-amber-800 dark:text-amber-400 border-amber-500/30"
+            }`}
+            onClick={() => triggerVoiceSiren()}
+          >
+            <Volume2 size={13} className={isPlayingSiren ? "animate-spin" : "text-[#f5b35a]"} />
+            <span>{isPlayingSiren ? "Broadcasting Voice Siren..." : "Voice Siren (Hindi Audio)"}</span>
+          </motion.button>
 
-        {/* 3. Model Audit & Report Card */}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="bg-panel-alt hover:bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[12px] gap-1.5 ml-auto"
-          onClick={() => setShowAuditModal(true)}
-        >
-          <Award size={13} />
-          <span>AI Model Audit Card</span>
-          <span className="px-1.5 py-0.2 bg-emerald-500/20 text-[10px] rounded-full font-bold">FAR: 14.2%</span>
-        </Button>
+          {/* 3. Model Audit & Report Card */}
+          <motion.button 
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:brightness-95 border border-border/40 text-[11.5px] font-semibold shadow-xs cursor-pointer"
+            onClick={() => setShowAuditModal(true)}
+          >
+            <Award size={13} className="text-accent" />
+            <span>Model Report Card</span>
+            <span className="px-1.5 py-0.2 bg-accent text-white text-[10px] rounded-full font-mono font-bold">FAR 14.2%</span>
+          </motion.button>
+        </div>
       </div>
 
       {/* MODAL 1: Citizen Crowdsourced Ground-Truth Reporting */}
@@ -254,7 +260,7 @@ export function InnovationHub({ monitoredLocation, locationName, selectedCell }:
                       />
                     </div>
 
-                    <Button type="submit" disabled={submitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 font-bold py-2 text-xs">
+                    <Button type="submit" disabled={submitting} className="w-full bg-accent hover:bg-accent/90 text-accent-contrast gap-2 font-bold py-2 text-xs cursor-pointer shadow-sm">
                       <Send size={14} />
                       {submitting ? "Ingesting Ground Truth..." : "Broadcast & Validate with ConvLSTM"}
                     </Button>
@@ -352,7 +358,7 @@ export function InnovationHub({ monitoredLocation, locationName, selectedCell }:
                   <Button variant="ghost" size="sm" onClick={() => setShowAuditModal(false)} className="text-xs">
                     Close Audit Card
                   </Button>
-                  <Button size="sm" onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white text-xs">
+                  <Button size="sm" onClick={() => window.print()} className="bg-accent hover:bg-accent/90 text-accent-contrast text-xs cursor-pointer shadow-sm">
                     Export Audit SITREP PDF
                   </Button>
                 </div>

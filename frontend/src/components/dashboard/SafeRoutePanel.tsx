@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Navigation, ShieldCheck, MapPin, CheckCircle2, Send, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
-import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { Navigation, ShieldCheck, MapPin, CheckCircle2, ArrowRight, Radio, Compass } from "lucide-react";
+import { BentoCard, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/config/api";
+import { motion } from "framer-motion";
 
 interface SafeRoutePanelProps {
   selectedCell?: { lat: number; lon: number } | null;
@@ -27,9 +29,9 @@ interface SafeRouteData {
 }
 
 const LEGEND: [string, string][] = [
-  ["Inundated Basin (Avoid)", "#ef4444"],
-  ["High Risk Cutoff", "#f59e0b"],
-  ["Safe Elevated Detour", "#22c55e"],
+  ["Flooded Basin (Hazard)", "#c92a2a"],
+  ["High Risk Cutoff", "#f5b35a"],
+  ["Safe Elevated Detour", "#246b38"],
 ];
 
 export function SafeRoutePanel({ selectedCell, monitoredLocation, locationName, maxRisks }: SafeRoutePanelProps) {
@@ -44,7 +46,7 @@ export function SafeRoutePanel({ selectedCell, monitoredLocation, locationName, 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    fetch(`http://localhost:8000/api/safe-route/${lat}/${lon}?forecast_hour=2`)
+    apiFetch(`/api/safe-route/${lat}/${lon}?forecast_hour=2`)
       .then((res) => {
         if (!res.ok) throw new Error("HTTP error " + res.status);
         return res.json();
@@ -98,42 +100,54 @@ export function SafeRoutePanel({ selectedCell, monitoredLocation, locationName, 
   };
 
   return (
-    <Card className="flex flex-col h-full min-w-0">
+    <BentoCard glowBorder="accent" className="flex flex-col h-full min-w-0">
       <CardHeader 
         icon={Navigation} 
-        title="Safe Route Suggestion" 
+        title="Safe Evacuation Corridor" 
+        subtitle="Hydrological Elevation Routing Engine"
         right={
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 font-bold">
-            <ShieldCheck size={11} /> AI Detour Active
+          <span className="text-[10px] font-mono px-2.5 py-1 rounded-md bg-secondary text-accent border border-border flex items-center gap-1.5 font-bold shadow-2xs">
+            <ShieldCheck size={12} className="text-accent" /> AI Detour Active
           </span>
         }
       />
-      <CardBody className="flex-1 flex flex-col p-3 space-y-3 justify-between">
-        {/* Top visual: SVG route map with elevation profile */}
-        <div className="h-32 rounded-lg relative overflow-hidden bg-[#0a101d] border border-border/60">
+      <CardBody className="flex-1 flex flex-col p-3.5 space-y-3 justify-between">
+        {/* Top visual: SVG route map with elevation profile & glow */}
+        <div className="h-32 rounded-lg relative overflow-hidden bg-background border border-border/70 shadow-inner">
           <svg viewBox="0 0 240 100" className="absolute inset-0 w-full h-full">
+            <defs>
+              <linearGradient id="safeRouteGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#246b38" />
+                <stop offset="100%" stopColor="#48bb78" />
+              </linearGradient>
+              <filter id="routeGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#246b38" floodOpacity="0.4" />
+              </filter>
+            </defs>
+
             {/* Background contour lines */}
-            <path d="M0,80 Q60,60 120,75 T240,65" fill="none" stroke="#1e293b" strokeWidth="1" />
-            <path d="M0,50 Q80,30 160,45 T240,35" fill="none" stroke="#1e293b" strokeWidth="1" />
+            <path d="M0,82 Q60,62 120,77 T240,68" fill="none" stroke="currentColor" className="text-border/60" strokeWidth="1" />
+            <path d="M0,52 Q80,32 160,47 T240,37" fill="none" stroke="currentColor" className="text-border/60" strokeWidth="1" />
             
             {/* Flooded River Basin / Lowlands (Red dashed line - Avoid) */}
-            <path d="M20,85 Q70,95 130,80 T220,90" fill="none" stroke="#ef444460" strokeWidth="6" strokeDasharray="3 3" />
+            <path d="M20,86 Q70,96 130,82 T220,92" fill="none" stroke="#c92a2a" strokeOpacity="0.4" strokeWidth="5" strokeDasharray="4 3" />
             
-            {/* Safe Ridgeline Detour Path (Green solid line) */}
+            {/* Safe Ridgeline Detour Path (Forest Green solid line with glow) */}
             <path
               d="M20,85 C60,50 110,25 210,20"
               fill="none"
-              stroke="#22c55e"
+              stroke="url(#safeRouteGrad)"
               strokeWidth="3.5"
-              strokeDasharray="6 4"
+              strokeDasharray="6 3"
+              filter="url(#routeGlow)"
             />
             {/* Origin Node */}
-            <circle cx="20" cy="85" r="5.5" fill="#3b82f6" stroke="#fff" strokeWidth="1.5" />
+            <circle cx="20" cy="85" r="5" fill="#f5b35a" stroke="#fff" strokeWidth="2" />
             {/* Destination Node */}
-            <circle cx="210" cy="20" r="5.5" fill="#22c55e" stroke="#fff" strokeWidth="1.5" />
+            <circle cx="210" cy="20" r="5" fill="#246b38" stroke="#fff" strokeWidth="2" />
           </svg>
 
-          <div className="absolute top-2 left-2 space-y-1 text-[9px] text-ink-dim bg-panel/85 backdrop-blur-xs p-1.5 rounded border border-border/50">
+          <div className="absolute top-2 left-2 space-y-1 text-[9px] font-medium text-ink-dim bg-panel/90 backdrop-blur-xs p-1.5 rounded-md border border-border/60 shadow-2xs">
             {LEGEND.map(([label, color]) => (
               <div key={label} className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
@@ -142,57 +156,62 @@ export function SafeRoutePanel({ selectedCell, monitoredLocation, locationName, 
             ))}
           </div>
 
-          <div className="absolute bottom-1.5 right-2 text-[9px] font-mono text-emerald-400 bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-500/30">
+          <div className="absolute bottom-2 right-2 text-[9.5px] font-mono font-bold text-accent bg-secondary/95 px-2 py-0.5 rounded border border-border/80 shadow-2xs flex items-center gap-1">
+            <Radio size={10} className="text-accent animate-pulse" />
             {datumClearance}
           </div>
         </div>
 
-        {/* Dynamic Route Details Card */}
-        <div className="grid grid-cols-2 gap-2 text-[11px]">
-          <div className="p-2 rounded-lg bg-panel-alt border border-border/60">
-            <span className="text-[10px] text-ink-faint block">Recommended Passage</span>
-            <span className="font-bold text-white flex items-center gap-1 mt-0.5 truncate" title={corridorName}>
-              <MapPin size={12} className="text-blue-400 shrink-0" />
+        {/* Dynamic Route Details Cards */}
+        <div className="grid grid-cols-2 gap-2.5 text-[11px]">
+          <div className="p-2.5 rounded-lg bg-panel-alt/70 border border-border/70 shadow-2xs">
+            <span className="text-[10px] font-medium text-ink-faint block uppercase tracking-wider">Recommended Passage</span>
+            <span className="font-bold text-ink flex items-center gap-1.5 mt-0.5 truncate" title={corridorName}>
+              <Compass size={13} className="text-accent shrink-0" />
               {corridorName}
             </span>
           </div>
-          <div className="p-2 rounded-lg bg-panel-alt border border-border/60">
-            <span className="text-[10px] text-ink-faint block">ETA &amp; Distance</span>
-            <span className="font-bold text-emerald-400 mt-0.5 block">
+          <div className="p-2.5 rounded-lg bg-panel-alt/70 border border-border/70 shadow-2xs">
+            <span className="text-[10px] font-medium text-ink-faint block uppercase tracking-wider">ETA &amp; Distance</span>
+            <span className="font-bold text-accent mt-0.5 block font-mono text-[12px]">
               {distanceKm}
             </span>
           </div>
         </div>
 
-        <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 flex items-center gap-2">
-          <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
-          <span className="line-clamp-2">{safetyVerdict}</span>
+        <div className="p-2.5 rounded-lg bg-secondary/50 border border-border text-[11px] text-ink flex items-center gap-2 shadow-2xs">
+          <CheckCircle2 size={14} className="shrink-0 text-accent" />
+          <span className="line-clamp-2 leading-relaxed">{safetyVerdict}</span>
         </div>
 
         {dispatchNotice && (
-          <div className="p-2 rounded-lg bg-emerald-600/30 border border-emerald-500 text-[10.5px] text-emerald-200 flex items-center gap-1.5 animate-in fade-in">
-            <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+          <motion.div 
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-2.5 rounded-lg bg-secondary border border-accent text-[11px] font-medium text-ink flex items-center gap-2"
+          >
+            <CheckCircle2 size={14} className="text-accent shrink-0" />
             <span>{dispatchNotice}</span>
-          </div>
+          </motion.div>
         )}
 
         <Button 
-          variant={dispatched ? "secondary" : "success"} 
+          variant={dispatched ? "outline" : "primary"} 
           size="sm" 
           onClick={handleDispatch}
-          className="w-full font-bold shadow-sm transition-all"
+          className="w-full font-bold shadow-xs transition-all cursor-pointer py-2 text-xs"
         >
           {dispatched ? (
-            <span className="flex items-center gap-1.5 text-emerald-300">
-              <CheckCircle2 size={13} /> Detour Dispatched to Traffic &amp; SDRF
+            <span className="flex items-center gap-1.5 text-accent font-semibold">
+              <CheckCircle2 size={14} /> Detour Dispatched to Traffic &amp; SDRF
             </span>
           ) : (
             <span className="flex items-center gap-1.5">
-              Dispatch Route to First Responders &amp; GPS Apps <ArrowRight size={13} />
+              Dispatch Route to First Responders &amp; GPS Apps <ArrowRight size={14} />
             </span>
           )}
         </Button>
       </CardBody>
-    </Card>
+    </BentoCard>
   );
 }

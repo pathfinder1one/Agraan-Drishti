@@ -439,9 +439,11 @@ def reverse_geocode(lat: float, lon: float, use_nominatim: bool = True) -> Dict[
     if use_nominatim:
         try:
             import ssl
-            ssl_ctx = ssl.create_default_context()
-            ssl_ctx.check_hostname = False
-            ssl_ctx.verify_mode = ssl.CERT_NONE
+            try:
+                import certifi
+                ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+            except Exception:
+                ssl_ctx = ssl.create_default_context()
 
             url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json&zoom=14&addressdetails=1"
             req = urllib.request.Request(

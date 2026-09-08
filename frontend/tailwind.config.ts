@@ -11,6 +11,18 @@ export default {
         "panel-alt": "var(--color-panel-alt)",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
@@ -30,8 +42,8 @@ export default {
           faint: "var(--color-ink-faint)",
         },
         accent: {
-          DEFAULT: "#3b82f6",
-          hover: "#2563eb",
+          DEFAULT: "var(--color-accent, #246b38)",
+          hover: "var(--color-accent-hover, #1b532b)",
         },
         risk: {
           extreme: "#ef4444",
@@ -42,13 +54,16 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["Montserrat", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
         panel: "0 1px 0 0 rgba(255,255,255,0.02) inset",
       },
       borderRadius: {
-        xl: "0.875rem",
+        xl: "0.66rem",
+        lg: "0.66rem",
+        md: "0.5rem",
+        DEFAULT: "0.66rem",
       },
       keyframes: {
         pulseRing: {

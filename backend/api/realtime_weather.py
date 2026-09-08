@@ -46,9 +46,11 @@ def fetch_realtime_weather(lat: float, lon: float, only_if_cached: bool = False)
     )
 
     import ssl
-    ssl_ctx = ssl.create_default_context()
-    ssl_ctx.check_hostname = False
-    ssl_ctx.verify_mode = ssl.CERT_NONE
+    try:
+        import certifi
+        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        ssl_ctx = ssl.create_default_context()
 
     try:
         req = urllib.request.Request(

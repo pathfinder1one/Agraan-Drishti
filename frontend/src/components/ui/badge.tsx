@@ -32,9 +32,10 @@ export function Badge({ children, color, level, className }: BadgeProps) {
   );
 }
 
-export function levelFromLabel(level: "Severe" | "High" | "Moderate"): RiskLevel {
+export function levelFromLabel(level: "Severe" | "High" | "Moderate" | string): RiskLevel {
   if (level === "Severe") return "extreme";
   if (level === "High") return "high";
+  if (level === "Low") return "low";
   return "moderate";
 }
 

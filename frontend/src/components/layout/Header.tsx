@@ -5,6 +5,7 @@ import {
   TriangleAlert,
   Compass,
   Moon,
+  Sun,
   Globe2,
   Bell,
   Settings2,
@@ -26,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 import { Search, Loader2, Crosshair } from "lucide-react";
+import { API_BASE } from "@/config/api";
 
 interface HeaderProps {
   searchQuery: string;
@@ -42,7 +44,7 @@ interface HeaderProps {
   realtimeWeather?: any;
   liveAlerts?: any[];
   onNavigate?: (nav: string) => void;
-  onTriggerBroadcast?: () => void;
+  onTriggerBroadcast?: (alt?: any) => void;
   onTriggerSitrep?: () => void;
   currentUser?: any;
   onOpenAuth?: () => void;
@@ -70,7 +72,17 @@ export function Header({
   onOpenAuth,
   onLogout
 }: HeaderProps) {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("agraan_theme");
+      if (saved !== null) {
+        return saved === "dark";
+      }
+      return false; // Default to Ninja (Light) mode as requested
+    } catch {
+      return false;
+    }
+  });
   const [currentLang, setCurrentLang] = useState('en');
   const [currentTime, setCurrentTime] = useState<string>("");
 
@@ -87,12 +99,14 @@ export function Header({
     return () => clearInterval(interval);
   }, []);
 
-  // Sync dark mode state with HTML class
+  // Sync dark mode state with HTML class and persist user preference
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
+      try { localStorage.setItem("agraan_theme", "dark"); } catch {}
     } else {
       document.documentElement.classList.remove('dark');
+      try { localStorage.setItem("agraan_theme", "ninja"); } catch {}
     }
   }, [darkMode]);
 
@@ -146,7 +160,7 @@ export function Header({
     const timer = setTimeout(async () => {
       try {
         setIsSuggesting(true);
-        const res = await fetch(`http://localhost:8000/api/geocode?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`${API_BASE}/api/geocode?q=${encodeURIComponent(q)}`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
@@ -220,21 +234,21 @@ export function Header({
 
   const highestRiskValue = Math.max(...Object.values(maxRisks || { flash_flood: 0 }));
   let riskLevel = "Low";
-  let riskColorClass = "text-risk-low border-risk-low/40";
-  let riskBg = "bg-[#142a18]";
+  let riskColorClass = "text-accent border-accent/30";
+  let riskBg = "bg-secondary";
   
   if (highestRiskValue > 0.85) {
     riskLevel = "Extreme";
-    riskColorClass = "text-risk-extreme border-risk-extreme/40";
-    riskBg = "bg-[#2a1414]";
+    riskColorClass = "text-destructive border-destructive/30";
+    riskBg = "bg-destructive/10";
   } else if (highestRiskValue > 0.60) {
     riskLevel = "High";
-    riskColorClass = "text-risk-high border-risk-high/40";
-    riskBg = "bg-[#2a2414]";
+    riskColorClass = "text-orange-700 dark:text-orange-400 border-orange-500/30";
+    riskBg = "bg-orange-500/10";
   } else if (highestRiskValue > 0.30) {
     riskLevel = "Moderate";
-    riskColorClass = "text-risk-moderate border-risk-moderate/40";
-    riskBg = "bg-[#2a2714]";
+    riskColorClass = "text-amber-700 dark:text-amber-400 border-amber-500/30";
+    riskBg = "bg-amber-500/10";
   }
 
   const activeHazards = Object.entries(maxRisks || {})
@@ -249,20 +263,20 @@ export function Header({
           onClick={() => setSidebarOpen?.(!sidebarOpen)}
           className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shrink-0 ${
             sidebarOpen
-              ? "bg-panel-alt hover:bg-panel border-border text-ink-dim hover:text-white"
-              : "bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/50 text-blue-400"
+              ? "bg-panel-alt hover:bg-panel border-border text-ink-dim hover:text-ink"
+              : "bg-accent/15 hover:bg-accent/25 border-accent/40 text-accent"
           }`}
           title={sidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
         >
           {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+          <div className="w-8 h-8 rounded-lg bg-destructive/15 border border-destructive/30 flex items-center justify-center text-destructive">
             <ShieldAlert size={18} />
           </div>
           <div>
             <div className="font-bold text-[14px] leading-tight text-ink flex items-center gap-1.5">
-              AGRAAN <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">AI</span>
+              AGRAAN <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-secondary text-accent border border-accent/20">AI</span>
             </div>
             <div className="text-[10.5px] text-ink-faint">Early Warning & SCADA Command</div>
           </div>
@@ -271,14 +285,19 @@ export function Header({
 
       {highestRiskValue > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`flex items-center gap-2.5 px-3.5 py-2 rounded-lg ${riskBg} border ${riskColorClass.split(' ')[1]}`}
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg ${riskBg} border ${riskColorClass.split(' ')[1]} shadow-xs`}
         >
-          <TriangleAlert size={16} className={`${riskColorClass.split(' ')[0]} ${highestRiskValue > 0.85 ? 'animate-pulse' : ''}`} />
-          <div className="leading-tight">
-            <div className={`text-[12.5px] font-bold ${riskColorClass.split(' ')[0]}`}>{riskLevel} risk detected</div>
-            <div className="text-[10.5px] text-ink-dim capitalize">{activeHazards}</div>
+          <TriangleAlert size={15} className={`${riskColorClass.split(' ')[0]} ${highestRiskValue > 0.85 ? 'animate-pulse' : ''}`} />
+          <div className="flex items-center gap-1.5 leading-none">
+            <span className={`text-[12px] font-bold ${riskColorClass.split(' ')[0]}`}>{riskLevel} Alert</span>
+            <span className="text-ink-faint text-[11px]">·</span>
+            <span className="text-[11.5px] font-medium text-ink capitalize truncate max-w-[150px]">{activeHazards}</span>
+            <span className="text-ink-faint text-[11px]">·</span>
+            <span className="text-[11px] font-mono font-bold text-ink-dim">
+              {highestRiskValue >= 0.75 ? "ETA 01h 15m" : highestRiskValue >= 0.50 ? "ETA 02h 45m" : highestRiskValue >= 0.25 ? "ETA 04h 30m" : "Nominal"}
+            </span>
           </div>
         </motion.div>
       )}
@@ -392,30 +411,18 @@ export function Header({
         </div>
       )}
 
-      <div className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-panel-alt border border-border">
-        <span className="text-[10.5px] text-ink-faint">ETA to impact</span>
-        <span className={`text-[13px] font-bold ${
-          highestRiskValue >= 0.75 
-            ? "text-red-400" 
-            : highestRiskValue >= 0.50 
-            ? "text-amber-400" 
-            : highestRiskValue >= 0.25 
-            ? "text-yellow-400" 
-            : "text-emerald-400"
-        }`}>
-          {highestRiskValue >= 0.75 
-            ? "01h 15m" 
-            : highestRiskValue >= 0.50 
-            ? "02h 45m" 
-            : highestRiskValue >= 0.25 
-            ? "04h 30m" 
-            : "Normal / Clear"}
-        </span>
-      </div>
 
       <div className="flex items-center gap-1.5 ml-auto">
         <Button variant="ghost" size="sm" onClick={() => setDarkMode((d) => !d)}>
-          <Moon size={13} /> {darkMode ? "Dark mode" : "Light mode"}
+          {darkMode ? (
+            <>
+              <Moon size={13} /> <span>Dark mode</span>
+            </>
+          ) : (
+            <>
+              <Sun size={13} className="text-amber-500" /> <span>Ninja (Light)</span>
+            </>
+          )}
         </Button>
         
         {/* Hidden Google Translate Target */}
@@ -561,7 +568,7 @@ export function Header({
                                   setShowAlertsPopover(false);
                                   onTriggerBroadcast(alt);
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white text-[10.5px] font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                                className="px-2.5 py-1 rounded-lg bg-accent hover:bg-accent-hover text-white text-[10.5px] font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                                 title="Broadcast via SMS & BLE Mesh Relay"
                               >
                                 <Radio size={12} />
@@ -575,7 +582,7 @@ export function Header({
                                   setShowAlertsPopover(false);
                                   onTriggerSitrep();
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-[10.5px] font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                                className="px-2.5 py-1 rounded-lg bg-secondary text-secondary-foreground border border-border/40 hover:brightness-95 text-[10.5px] font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                                 title="View Official NDRF SITREP Document"
                               >
                                 <FileText size={12} />
@@ -590,13 +597,13 @@ export function Header({
                 </div>
 
                 {/* Popover Footer */}
-                <div className="p-3 bg-panel border-t border-white/10 flex items-center justify-between gap-2">
+                <div className="p-3 bg-panel border-t border-border flex items-center justify-between gap-2">
                   <button
                     onClick={() => {
                       setShowAlertsPopover(false);
                       if (onNavigate) onNavigate("alerts");
                     }}
-                    className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors cursor-pointer"
+                    className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <span>Open Full Alerts Clearinghouse</span>
                     <ChevronRight size={13} />
@@ -608,7 +615,7 @@ export function Header({
                         setShowAlertsPopover(false);
                         onTriggerBroadcast();
                       }}
-                      className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all shadow-[0_0_15px_rgba(239,68,68,0.4)] flex items-center gap-1.5 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-destructive hover:brightness-110 text-destructive-foreground text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                     >
                       <Send size={12} />
                       <span>Send NDRF Siren</span>
@@ -635,19 +642,19 @@ export function Header({
         {/* User Authentication & Emergency Subscription Profile */}
         {currentUser ? (
           <div className="flex items-center gap-2 pl-2.5 ml-1 border-l border-border-soft">
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs">
-              <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-secondary border border-border text-xs">
+              <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-bold text-white shrink-0">
                 {currentUser.name ? currentUser.name[0].toUpperCase() : "U"}
               </div>
               <div className="hidden xl:block text-left">
                 <p className="font-bold text-ink text-[11px] leading-tight truncate max-w-[120px]">{currentUser.name}</p>
-                <p className="text-[9.5px] text-blue-400 font-mono leading-tight">{currentUser.phone_number}</p>
+                <p className="text-[9.5px] text-ink-dim font-mono leading-tight">{currentUser.phone_number}</p>
               </div>
             </div>
             {onLogout && (
               <button
                 onClick={onLogout}
-                className="p-1.5 rounded-lg text-ink-dim hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="p-1.5 rounded-lg text-ink-dim hover:text-destructive hover:bg-destructive/10 transition-colors"
                 title="Log out from emergency alert session"
               >
                 <LogOut size={14} />
@@ -658,7 +665,7 @@ export function Header({
           <div className="flex items-center gap-2 pl-2.5 ml-1 border-l border-border-soft">
             <button
               onClick={onOpenAuth}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-600/30 flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               <Phone size={12} />
               <span className="hidden sm:inline">Register / Login</span>
@@ -667,10 +674,10 @@ export function Header({
         )}
 
         <div className="flex items-center gap-2 pl-2.5 ml-1 border-l border-border-soft">
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold bg-blue-700 text-white">
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold bg-[#f5b35a] text-[#1a261d] font-mono shadow-xs">
             N
           </div>
-          <span className="text-[12.5px] hidden lg:inline text-ink-dim">NDRF · India</span>
+          <span className="text-[12.5px] hidden lg:inline text-ink-dim font-medium">NDRF · India</span>
         </div>
       </div>
     </header>

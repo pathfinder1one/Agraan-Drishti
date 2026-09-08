@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { API_BASE } from "@/config/api";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { RiskMapPanel } from "@/components/dashboard/RiskMapPanel";
@@ -67,7 +68,6 @@ export default function App() {
   const [radarLive, setRadarLive] = useState(null);
   const lastInferenceRef = useRef(null);
 
-  const API_BASE = "http://localhost:8000";
 
   const handleDetectLocation = () => {
     if (!("geolocation" in navigator)) {
@@ -441,7 +441,7 @@ export default function App() {
         {!sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
-            className="fixed left-3 top-20 z-40 px-3 py-1.5 rounded-xl bg-blue-600/90 hover:bg-blue-600 text-white shadow-[0_4px_20px_rgba(37,99,235,0.4)] border border-blue-400/40 backdrop-blur transition-all flex items-center gap-1.5 text-xs font-bold"
+            className="fixed left-3 top-20 z-40 px-3 py-1.5 rounded-xl bg-accent hover:bg-accent/90 text-accent-contrast shadow-lg border border-accent/40 backdrop-blur transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
             title="Open Sidebar Navigation"
           >
             <PanelLeftOpen size={15} />
@@ -452,30 +452,13 @@ export default function App() {
         <main className="flex-1 min-w-0 min-h-0 h-full overflow-hidden flex flex-col">
           {activeNav === "sms-gateway" ? (
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-5xl mx-auto w-full space-y-5">
-              <div className="p-4 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-950/40 via-panel to-panel-alt flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
-                <div>
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Smartphone className="w-5 h-5 text-blue-400" />
-                    LOCATION-AWARE EMERGENCY SMS ALERT GATEWAY
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Targeted emergency broadcast dispatching to registered citizens within the active hazard radius.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-600/30 shrink-0 cursor-pointer"
-                >
-                  + Register Subscriber
-                </button>
-              </div>
-
               <SmsAlertDispatchPanel 
                 locationName={locationName}
                 selectedCell={selectedCell}
                 activeLayer={activeLayer}
                 maxRisks={maxRisks}
                 currentUser={currentUser}
+                onOpenRegister={() => setShowAuthModal(true)}
               />
             </div>
           ) : activeNav === "live-map" ? (
@@ -517,32 +500,6 @@ export default function App() {
               {/* Row 1: Map Overview + AI Diagnostics (Perfect Height Balance) */}
               <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px] gap-5 items-stretch min-w-0 w-full">
                 <div className="space-y-5 flex flex-col min-w-0">
-                  {/* Live Map Command Banner */}
-                  <div className="p-4 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-950/40 via-panel to-panel-alt flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-extrabold shadow-[0_0_15px_rgba(59,130,246,0.2)]">
-                        <MapIcon size={20} />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-extrabold text-ink flex items-center gap-2">
-                          <span>GEOSPATIAL COMMAND CENTER</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            ALL-INDIA 594 DISTRICTS LIVE
-                          </span>
-                        </h3>
-                        <p className="text-xs text-ink-dim mt-0.5">
-                          Active Monitoring: <strong className="text-ink">{locationName}</strong> · Satellite + Radar + ConvLSTM
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveNav("live-map")}
-                      className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs transition-all shadow-[0_0_15px_rgba(37,99,235,0.4)] flex items-center gap-1.5 shrink-0"
-                    >
-                      <ExternalLink size={13} /> Launch Full-Screen Live Map
-                    </button>
-                  </div>
-
                   <RiskMapPanel 
                     heatmapData={heatmapData} 
                     activeLayer={activeLayer}
@@ -551,6 +508,7 @@ export default function App() {
                     selectedCell={selectedCell}
                     monitoredLocation={monitoredLocation}
                     satelliteRevision={satelliteRevision}
+                    onLaunchFullScreen={() => setActiveNav("live-map")}
                   />
                   <NowcastTimeline forecastHour={forecastHour} onHourSelect={setForecastHour} maxRisks={maxRisks} />
                 </div>
@@ -560,6 +518,11 @@ export default function App() {
                     selectedCell={selectedCell} 
                     monitoredLocation={monitoredLocation}
                     forecastHour={forecastHour} 
+                  />
+                  <RecommendedActionsPanel 
+                    locationName={locationName}
+                    maxRisks={maxRisks}
+                    onTriggerAlert={() => setShowNdrfModal(true)}
                   />
                   <XAIPanel 
                     data={xaiData} 
@@ -694,60 +657,60 @@ export default function App() {
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-              className="bg-[#0d1321] border border-blue-500/60 rounded-2xl w-full max-w-xl p-6 shadow-[0_10px_40px_rgba(59,130,246,0.3)] space-y-3"
+              className="bg-panel border border-border-soft rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-3"
             >
-              <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                <h2 className="text-blue-400 text-lg font-extrabold flex items-center gap-2">
+              <div className="flex justify-between items-center border-b border-border-soft/70 pb-3">
+                <h2 className="text-accent text-lg font-extrabold flex items-center gap-2">
                   <Bell size={20} className="animate-bounce" /> MULTI-CHANNEL EMERGENCY DISPATCH
                 </h2>
-                <button onClick={() => setShowSmsModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+                <button onClick={() => setShowSmsModal(false)} className="text-ink-muted hover:text-ink text-lg font-bold">✕</button>
               </div>
 
               {/* Channel 1 */}
-              <div className="bg-white/5 p-3 rounded-lg border-l-4 border-blue-500">
-                <p className="text-xs text-slate-300 font-bold mb-1 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-400"></span> Channel 1: Citizens 5km Radius (SMS &amp; WhatsApp)
+              <div className="bg-panel-alt/60 p-3 rounded-lg border-l-4 border-accent">
+                <p className="text-xs text-ink-muted font-bold mb-1 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-accent"></span> Channel 1: Citizens 5km Radius (SMS &amp; WhatsApp)
                 </p>
-                <p className="text-xs text-slate-200 font-medium">⚠️ चेतावनी: अगले 2 घंटे में भारी बारिश और बाढ़ की संभावना है। कृपया सुरक्षित स्थानों पर चले जाएं। (NDMA)</p>
+                <p className="text-xs text-ink font-medium">⚠️ चेतावनी: अगले 2 घंटे में भारी बारिश और बाढ़ की संभावना है। कृपया सुरक्षित स्थानों पर चले जाएं। (NDMA)</p>
               </div>
 
               {/* Channel 2 */}
-              <div className="bg-white/5 p-3 rounded-lg border-l-4 border-red-500">
-                <p className="text-xs text-slate-300 font-bold mb-1 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span> Channel 2: DM Office, SDM, First Responders (API Push)
+              <div className="bg-panel-alt/60 p-3 rounded-lg border-l-4 border-destructive">
+                <p className="text-xs text-ink-muted font-bold mb-1 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-destructive animate-pulse"></span> Channel 2: DM Office, SDM, First Responders (API Push)
                 </p>
-                <p className="text-xs text-slate-200 font-medium">🚨 EXTREME RISK ALERT: {activeLayer} risk {(maxRisks[activeLayer.toLowerCase().replace(' ', '_')] ? maxRisks[activeLayer.toLowerCase().replace(' ', '_')] * 100 : (maxRisks.flash_flood ? maxRisks.flash_flood * 100 : 88)).toFixed(0)}% near {selectedCell ? `${selectedCell.lat.toFixed(2)}°N, ${selectedCell.lon.toFixed(2)}°E` : (locationName || 'Monitored Sector')}. Initiate immediate evacuation protocol.</p>
+                <p className="text-xs text-ink font-medium">🚨 EXTREME RISK ALERT: {activeLayer} risk {(maxRisks[activeLayer.toLowerCase().replace(' ', '_')] ? maxRisks[activeLayer.toLowerCase().replace(' ', '_')] * 100 : (maxRisks.flash_flood ? maxRisks.flash_flood * 100 : 88)).toFixed(0)}% near {selectedCell ? `${selectedCell.lat.toFixed(2)}°N, ${selectedCell.lon.toFixed(2)}°E` : (locationName || 'Monitored Sector')}. Initiate immediate evacuation protocol.</p>
               </div>
 
               {/* Channel 3: Offline P2P Mesh Relay */}
-              <div className="bg-white/5 p-3 rounded-lg border-l-4 border-emerald-500">
+              <div className="bg-panel-alt/60 p-3 rounded-lg border-l-4 border-accent">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs text-slate-300 font-bold flex items-center gap-1.5">
-                    <Radio size={13} className="text-emerald-400 animate-pulse" /> Channel 3: Offline P2P Mesh Relay (Zero Cell Signal / Tower Collapse)
+                  <p className="text-xs text-ink-muted font-bold flex items-center gap-1.5">
+                    <Radio size={13} className="text-accent animate-pulse" /> Channel 3: Offline P2P Mesh Relay (Zero Cell Signal / Tower Collapse)
                   </p>
-                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">14 HOPS ACTIVE</span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-accent/20 text-accent font-bold">14 HOPS ACTIVE</span>
                 </div>
-                <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                <p className="text-xs text-ink font-medium leading-relaxed">
                   📡 Bluetooth Low Energy (BLE) multi-hop packet broadcasted phone-to-phone across isolated valley habitations with <strong>zero cellular or internet connectivity required</strong>.
                 </p>
               </div>
 
               {/* Channel 4: M2M Autonomous Infrastructure Interlocks (SCADA/IoT) */}
-              <div className="bg-white/5 p-3 rounded-lg border-l-4 border-purple-500">
+              <div className="bg-panel-alt/60 p-3 rounded-lg border-l-4 border-amber-500">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs text-slate-300 font-bold flex items-center gap-1.5">
-                    <Cpu size={13} className="text-purple-400 animate-pulse" /> Channel 4: M2M Autonomous Infrastructure Interlocks (SCADA / IoT Relay)
+                  <p className="text-xs text-ink-muted font-bold flex items-center gap-1.5">
+                    <Cpu size={13} className="text-amber-500 animate-pulse" /> Channel 4: M2M Autonomous Infrastructure Interlocks (SCADA / IoT Relay)
                   </p>
-                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">4 SYSTEMS ARMED</span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">4 SYSTEMS ARMED</span>
                 </div>
-                <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                <p className="text-xs text-ink font-medium leading-relaxed">
                   ⚙️ Machine-to-machine actuation signals dispatched: <strong>Dam Sluice Gates</strong> (IEC-60870 pre-drawdown), <strong>Indian Railways</strong> (Kavach speed cap 30km/h), and <strong>Highway VMS / Barrier Dropped</strong> with 60s Human-in-the-Loop abort window.
                 </p>
-                <div className="mt-1.5 flex items-center justify-between text-[10px] text-purple-300/90 pt-1 border-t border-purple-500/20">
+                <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-muted pt-1 border-t border-border-soft">
                   <span className="font-mono text-[9.5px]">Standard: IEC 60870-5-104 &amp; MQTT Protocol</span>
                   <button 
                     onClick={() => { setShowSmsModal(false); setActiveNav("infrastructure"); }}
-                    className="underline text-purple-300 hover:text-white font-bold"
+                    className="underline text-accent hover:text-accent/80 font-bold cursor-pointer"
                   >
                     Open SCADA Interlock Center ➔
                   </button>
@@ -756,22 +719,22 @@ export default function App() {
 
               {/* Real-time Backend Broadcast Confirmation Receipt */}
               {dispatchReceipt && (
-                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex flex-wrap items-center justify-between gap-2 font-mono">
-                  <span>DISPATCH: <strong className="text-white">{dispatchReceipt.dispatch_id}</strong></span>
-                  <span>NIC TX: <strong className="text-white">{dispatchReceipt.channels?.sms_gateway?.message_id}</strong></span>
-                  <span>BLE HASH: <strong className="text-white">{dispatchReceipt.channels?.ble_mesh?.packet_hash?.slice(0, 10)}...</strong></span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">{dispatchReceipt.status}</span>
+                <div className="p-2.5 rounded-xl bg-accent/10 border border-accent/30 text-accent text-xs flex flex-wrap items-center justify-between gap-2 font-mono">
+                  <span>DISPATCH: <strong className="text-ink">{dispatchReceipt.dispatch_id}</strong></span>
+                  <span>NIC TX: <strong className="text-ink">{dispatchReceipt.channels?.sms_gateway?.message_id}</strong></span>
+                  <span>BLE HASH: <strong className="text-ink">{dispatchReceipt.channels?.ble_mesh?.packet_hash?.slice(0, 10)}...</strong></span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent font-bold uppercase">{dispatchReceipt.status}</span>
                 </div>
               )}
 
-              <div className="pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="pt-3 border-t border-border-soft flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <div className="inline-block w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin shrink-0" />
-                  <p className="text-[11px] text-emerald-400 font-mono">Routing via NIC SMS Gateway &amp; BLE Mesh Nodes...</p>
+                  <div className="inline-block w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />
+                  <p className="text-[11px] text-accent font-mono">Routing via NIC SMS Gateway &amp; BLE Mesh Nodes...</p>
                 </div>
                 <button 
                   onClick={() => { setShowSmsModal(false); setShowNdrfModal(true); }}
-                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1.5 shrink-0"
+                  className="px-3.5 py-1.5 bg-accent hover:bg-accent/90 text-accent-contrast rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1.5 shrink-0 cursor-pointer"
                 >
                   <FileText size={13} /> View Official NDRF SITREP ➔
                 </button>
@@ -844,8 +807,8 @@ export default function App() {
               </div>
 
               <div className="mt-8 flex justify-end gap-4">
-                <button onClick={() => setShowNdrfModal(false)} className="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-black rounded font-semibold transition-colors">Close</button>
-                <button onClick={() => window.print()} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors">Print / Export SITREP PDF</button>
+                <button onClick={() => setShowNdrfModal(false)} className="px-5 py-2.5 bg-secondary hover:bg-secondary/80 text-ink rounded font-semibold transition-colors cursor-pointer">Close</button>
+                <button onClick={() => window.print()} className="px-5 py-2.5 bg-accent hover:bg-accent/90 text-accent-contrast rounded font-semibold transition-colors cursor-pointer">Print / Export SITREP PDF</button>
               </div>
             </motion.div>
           </motion.div>

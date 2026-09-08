@@ -2,7 +2,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict
@@ -34,64 +35,38 @@ from backend.api.alerts_service import get_unified_alerts, dispatch_alert_multic
 try:
     from backend.api.sms_db import (
         register_user, login_user, get_all_users, get_affected_users, 
-        create_disaster_alert, get_recent_sms_logs
+        create_disaster_alert, get_recent_sms_logs,
+        save_ground_report, get_persisted_ground_reports, get_ground_reports_count_near,
+        record_feedback_action, get_persisted_feedback_stats
     )
     from backend.api.sms_provider import dispatch_emergency_sms_alert
+    from backend.api.auth import require_authorized_operator, create_access_token
 except ImportError:
     from api.sms_db import (
         register_user, login_user, get_all_users, get_affected_users, 
-        create_disaster_alert, get_recent_sms_logs
+        create_disaster_alert, get_recent_sms_logs,
+        save_ground_report, get_persisted_ground_reports, get_ground_reports_count_near,
+        record_feedback_action, get_persisted_feedback_stats
     )
     from api.sms_provider import dispatch_emergency_sms_alert
+    from api.auth import require_authorized_operator, create_access_token
 
-app = FastAPI(
-    title="AI Disaster Command Map — API",
-    description="Hyper-local severe weather nowcasting system (SIH26077)",
-    version="1.0.0",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from backend.api.routers import infrastructure as router_infra
+from backend.api.routers import alerts as router_alerts
+from backend.api.routers import auth_users as router_auth
+from backend.api.routers import weather as router_weather
 
 # ──────────────────────────────────────────────
-# In-memory state (would be DB in production)
+# In-memory caches backed by SQLite persistence
 # ──────────────────────────────────────────────
 active_alerts: List[dict] = []
 connected_clients: List[WebSocket] = []
-ground_reports_db: List[dict] = [
-    {
-        "id": "rep_101",
-        "lat": 30.73,
-        "lon": 79.06,
-        "location_name": "Rudraprayag Valley, Kedarnath Route",
-        "hazard_type": "flash_flood",
-        "severity": "extreme",
-        "description": "Mandakini river level rising rapidly near bridge, heavy rain since 40 mins.",
-        "reporter_role": "Gram Pradhan / Patroller",
-        "timestamp": "2026-09-03T02:45:00Z",
-        "model_match": "CONFIRMED_CRITICAL",
-        "verified": True
-    },
-    {
-        "id": "rep_102",
-        "lat": 30.38,
-        "lon": 79.22,
-        "location_name": "Chamoli Highway Block",
-        "hazard_type": "cloudburst",
-        "severity": "severe",
-        "description": "Intense torrential downpour with minor rockfall on NH-58.",
-        "reporter_role": "Citizen Commuter",
-        "timestamp": "2026-09-03T03:10:00Z",
-        "model_match": "HIGH_CORRELATION",
-        "verified": True
-    }
-]
-alert_feedback_stats = {"acknowledged": 18, "dispatched": 12, "dismissed": 3}
+try:
+    ground_reports_db: List[dict] = get_persisted_ground_reports()
+    alert_feedback_stats = get_persisted_feedback_stats()["stats"]
+except Exception:
+    ground_reports_db: List[dict] = []
+    alert_feedback_stats = {"acknowledged": 18, "dispatched": 12, "dismissed": 3}
 
 
 # ──────────────────────────────────────────────
@@ -239,7 +214,7 @@ except FileNotFoundError:
 
 def _load_satellite_index():
     """Load the latest 310x310 satellite convective proxy, if ingested."""
-    global satellite_index, satellite_metadata
+    global satellite_index, satellite_metadata, satellite_last_ingest_utc, inference_last_run_utc
     if not SATELLITE_TENSOR_PATH.exists():
         satellite_index = None
         return None
@@ -255,6 +230,11 @@ def _load_satellite_index():
         "min": round(float(satellite_index.min()), 4),
         "max": round(float(satellite_index.max()), 4),
     }
+    mtime = datetime.fromtimestamp(SATELLITE_TENSOR_PATH.stat().st_mtime, tz=timezone.utc).isoformat()
+    if satellite_last_ingest_utc is None:
+        satellite_last_ingest_utc = mtime
+    if inference_last_run_utc is None:
+        inference_last_run_utc = mtime
     return satellite_index
 
 
@@ -297,19 +277,38 @@ async def _satellite_poll_loop():
         await asyncio.sleep(SATELLITE_POLL_MINUTES * 60)
 
 
-@app.on_event("startup")
-async def start_satellite_scheduler():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global satellite_scheduler_task
     if SATELLITE_SCHEDULER_ENABLED and satellite_scheduler_task is None:
         satellite_scheduler_task = asyncio.create_task(_satellite_poll_loop())
-
-
-@app.on_event("shutdown")
-async def stop_satellite_scheduler():
-    global satellite_scheduler_task
+    yield
     if satellite_scheduler_task is not None:
         satellite_scheduler_task.cancel()
         satellite_scheduler_task = None
+
+
+app = FastAPI(
+    title="AI Disaster Command Map — API",
+    description="Hyper-local severe weather nowcasting system (SIH26077)",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register Domain APIRouters
+app.include_router(router_infra.router)
+app.include_router(router_alerts.router)
+app.include_router(router_auth.router)
+app.include_router(router_weather.router)
+
 
 
 def _resize_grid(grid: torch.Tensor, height: int, width: int) -> torch.Tensor:
@@ -494,109 +493,6 @@ def generate_explanation(signals: dict, event_type: str) -> str:
 @app.get("/")
 def root():
     return {"status": "online", "system": "AI Disaster Command Map", "version": "1.0.0"}
-
-
-@app.get("/api/realtime-weather/{lat}/{lon}")
-def get_realtime_weather_endpoint(lat: float, lon: float):
-    """Return live atmospheric & weather telemetry for exact coordinates."""
-    return fetch_realtime_weather(lat, lon)
-
-
-@app.get("/api/radar/live")
-def get_radar_live_endpoint():
-    """Return live Doppler radar mosaic & frame timestamps from global radar network."""
-    return fetch_realtime_radar_status()
-
-
-@app.get("/api/satellite/status")
-def satellite_status():
-    """Return satellite ingestion and model-fusion status."""
-    client_status = satellite_worker.client.get_status()
-    is_eumetsat = client_status["source"].startswith("eumetsat")
-    return {
-        "pipeline": "Meteosat-9 SEVIRI IR_108 convective proxy" if is_eumetsat else "INSAT-3DR CTT convective proxy",
-        "source": client_status["source"],
-        "connection_status": client_status["status"],
-        "status": "ready" if satellite_index is not None else "not_ingested",
-        "ingested": satellite_index is not None,
-        "model_weights_loaded": model_weights_loaded,
-        "model_weights_repaired": model_weights_repaired,
-        "fusion": "satellite proxy is injected into the latest model sequence frame",
-        "last_tensor": satellite_metadata,
-        "last_update_utc": satellite_last_ingest_utc,
-        "last_error": satellite_last_error,
-        "inference_last_run_utc": inference_last_run_utc,
-        "inference_last_error": inference_last_error,
-        "scheduler_enabled": SATELLITE_SCHEDULER_ENABLED,
-        "poll_minutes": SATELLITE_POLL_MINUTES,
-    }
-
-
-@app.post("/api/satellite/ingest")
-def ingest_satellite():
-    """Fetch/process the latest granule and make it available to predictions."""
-    result = _ingest_satellite_once()
-    client_status = satellite_worker.client.get_status()
-    return {
-        **result,
-        "source": client_status["source"],
-        "model_weights_loaded": model_weights_loaded,
-        "model_weights_repaired": model_weights_repaired,
-        "status": satellite_status(),
-    }
-
-
-@app.get("/api/satellite/image")
-def get_satellite_image(
-    center_lat: Optional[float] = None,
-    center_lon: Optional[float] = None,
-    crop: bool = False,
-):
-    """Return the raw satellite tensor as a transparent PNG overlay for Leaflet."""
-    from fastapi.responses import StreamingResponse
-    from PIL import Image
-    import io
-    import numpy as np
-
-    if satellite_index is None:
-        # Return a 1x1 transparent pixel if no satellite data
-        img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
-        buf = io.BytesIO()
-        img.save(buf, format='PNG')
-        buf.seek(0)
-        return StreamingResponse(buf, media_type="image/png")
-
-    img_array = satellite_index.cpu().numpy()
-    if crop and center_lat is not None and center_lon is not None:
-        row = round((center_lat - LAT_MIN) / (LAT_MAX - LAT_MIN) * (img_array.shape[0] - 1))
-        col = round((center_lon - LON_MIN) / (LON_MAX - LON_MIN) * (img_array.shape[1] - 1))
-        half_size = 55
-        row_start = max(0, min(img_array.shape[0] - 2 * half_size, row - half_size))
-        col_start = max(0, min(img_array.shape[1] - 2 * half_size, col - half_size))
-        img_array = img_array[row_start:row_start + 2 * half_size, col_start:col_start + 2 * half_size]
-    
-    # We flip it upside down because tensors often have origin at bottom-left
-    # while images have origin at top-left. Wait, India is in Northern Hemisphere.
-    # The Leaflet ImageOverlay expects standard top-to-bottom.
-    # In matplotlib, lat increases from bottom to top. We'll flip it for ImageOverlay.
-    img_array = np.flipud(img_array)
-    
-    rgba = np.zeros((img_array.shape[0], img_array.shape[1], 4), dtype=np.uint8)
-    rgba[..., 0] = 255 # White clouds
-    rgba[..., 1] = 255
-    rgba[..., 2] = 255
-    
-    # Apply a curve so only thick clouds show up opaquely, and strictly threshold low noise to completely transparent
-    raw_alpha = (img_array ** 1.5) * 255.0 * 2.0
-    alpha = np.where(img_array < 0.15, 0, np.clip(raw_alpha, 0, 255))
-    rgba[..., 3] = alpha.astype(np.uint8)
-    
-    img = Image.fromarray(rgba, 'RGBA')
-    buf = io.BytesIO()
-    img.save(buf, format='PNG')
-    buf.seek(0)
-    
-    return StreamingResponse(buf, media_type="image/png")
 
 
 HIMALAYAN_STATES = {"Uttarakhand", "Uttaranchal", "Himachal Pradesh", "Jammu and Kashmir", "Jammu & Kashmir", "Ladakh", "Sikkim", "Arunachal Pradesh", "Meghalaya", "Nagaland", "Manipur", "Mizoram"}
@@ -1122,9 +1018,11 @@ def geocode_location(q: str):
 
     # 2. Live Geocoding via Open-Meteo API (fast, free, handles partial queries, 0 rate limit, global coverage)
     import ssl, urllib.request, urllib.parse, json
-    ssl_ctx = ssl.create_default_context()
-    ssl_ctx.check_hostname = False
-    ssl_ctx.verify_mode = ssl.CERT_NONE
+    try:
+        import certifi
+        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        ssl_ctx = ssl.create_default_context()
 
     try:
         url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(query)}&count=8&language=en&format=json"
@@ -1296,68 +1194,6 @@ def get_cascading_chain(lat: float, lon: float, forecast_hour: int = 1):
     }
 
 
-# In-memory interlock override state tracker
-M2M_OVERRIDE_STATE = {"aborted": False, "manual_override": False, "last_updated": None}
-
-@app.get("/api/infrastructure/m2m-interlocks/{lat}/{lon}")
-def get_m2m_interlocks(lat: float, lon: float, forecast_hour: int = 1):
-    """
-    Automatic Machine-to-Machine (M2M) Infrastructure Triggering & SCADA Interlocks.
-    Dispatches automated webhook payloads and hardware signals to critical infrastructure
-    dynamically resolved based on exact reverse-geocoded coordinates.
-    """
-    import datetime
-    
-    coord_data = calculate_coordinate_risks(lat, lon, forecast_hour)
-    composite_risk = coord_data["overall_risk"]
-    
-    # Dynamic regional infrastructure mapping from reverse geocoding
-    targets = get_dynamic_infrastructure(lat, lon, composite_risk, M2M_OVERRIDE_STATE["aborted"])
-    is_active = composite_risk > 0.35 and not M2M_OVERRIDE_STATE["aborted"]
-
-    return {
-        "lat": lat,
-        "lon": lon,
-        "forecast_hour": forecast_hour,
-        "composite_risk": round(composite_risk * 100, 1),
-        "interlock_triggered": is_active,
-        "aborted_by_operator": M2M_OVERRIDE_STATE["aborted"],
-        "override_window_seconds": 60,
-        "trigger_timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S IST"),
-        "targets": targets,
-        "transparency_framework": {
-            "tier": "SIMULATED SCADA PAYLOAD / WEBHOOK READY",
-            "one_concern_safeguard": "Unlike One Concern's unvalidated proprietary black-box claims, Agraan AI uses open industrial standards (MQTT/IEC-60870) paired with a strict 60s Human-in-the-Loop abort override before physical actuation.",
-            "production_prerequisite": "Requires optical isolation barrier (Data Diode) & CWC/NHAI authority gateway authorization."
-        }
-    }
-
-
-@app.post("/api/infrastructure/m2m-test-ping")
-def post_m2m_test_ping(payload: dict):
-    """
-    Test SCADA node ping handshake with sub-50ms roundtrip verification.
-    """
-    target_id = payload.get("target_id", "hydro_sluice_gate")
-    lat = float(payload.get("lat", 28.75))
-    lon = float(payload.get("lon", 77.50))
-    return ping_scada_target(target_id, lat, lon)
-
-
-
-@app.post("/api/infrastructure/m2m-override")
-def post_m2m_override(payload: dict = None):
-    """Toggle manual abort or resume of automated M2M interlocks."""
-    action = payload.get("action", "toggle") if payload else "toggle"
-    if action == "abort":
-        M2M_OVERRIDE_STATE["aborted"] = True
-    elif action == "resume":
-        M2M_OVERRIDE_STATE["aborted"] = False
-    else:
-        M2M_OVERRIDE_STATE["aborted"] = not M2M_OVERRIDE_STATE["aborted"]
-    return {"status": "ok", "aborted": M2M_OVERRIDE_STATE["aborted"]}
-
-
 @app.get("/api/vulnerable-registry/{lat}/{lon}")
 def get_vulnerable_registry(lat: float, lon: float):
     """
@@ -1501,100 +1337,6 @@ def replay_event(event_id: str):
     }
 
 
-@app.get("/api/alerts")
-def get_alerts(
-    role: str = "authority", 
-    event_id: str = "live", 
-    forecast_hour: int = 2,
-    lat: Optional[float] = None,
-    lon: Optional[float] = None,
-    location_name: Optional[str] = None
-):
-    """Return live unified disaster alerts (NDMA Sachet + ML Hyperlocal nowcasts); historical replay remains available by event id."""
-    if event_id == "live":
-        coord_risks = calculate_coordinate_risks(lat, lon, forecast_hour) if (lat is not None and lon is not None) else None
-        return get_unified_alerts(
-            lat=lat,
-            lon=lon,
-            location_name=location_name,
-            forecast_hour=forecast_hour,
-            role=role,
-            coordinate_risks=coord_risks
-        )
-
-    events_to_check = [e for e in HISTORICAL_EVENTS if e.event_id == event_id]
-    if not events_to_check:
-        events_to_check = [HISTORICAL_EVENTS[0]]
-
-    demo_alerts = []
-    for event in events_to_check:
-        signals = generate_xai_signals(event.lat, event.lon, event_id)
-        explanation = generate_explanation(signals, event.event_type)
-        c_risks = calculate_coordinate_risks(event.lat, event.lon, forecast_hour)
-
-        alert = {
-            "id": event.event_id,
-            "event_type": event.event_type,
-            "severity": "warning" if event.severity == "high" else "emergency",
-            "probability": round(c_risks["overall_risk"], 2),
-            "lat": event.lat, "lon": event.lon,
-            "lead_time_hours": "+2h",
-            "explanation": explanation,
-            "role": role,
-            "location_name": event.description.split("—")[0].strip() if "—" in event.description else "Region"
-        }
-
-        # Role-specific content
-        if role == "public":
-            alert["message"] = f"High {event.event_type.replace('_', ' ')} risk in your area within ~{alert['lead_time_hours']} hours. Avoid low-lying areas."
-        elif role == "authority":
-            alert["message"] = f"{alert['severity'].upper()}: {event.event_type.replace('_', ' ')} risk at ({event.lat:.1f}°N, {event.lon:.1f}°E). Threat Index: {c_risks['threat_level']}%. ETA: {alert['lead_time_hours']}h."
-        elif role == "responder":
-            alert["message"] = f"Deploy to ({event.lat:.1f}°N, {event.lon:.1f}°E). {event.event_type.replace('_', ' ')} expected in {alert['lead_time_hours']}h. {explanation}"
-
-        demo_alerts.append(alert)
-
-    return demo_alerts
-
-
-@app.post("/api/alerts/broadcast")
-def broadcast_alert_endpoint(request: BroadcastAlertRequest):
-    """Execute real multi-channel emergency broadcast across NIC SMS, SDRF push, BLE Mesh, and SCADA."""
-    return dispatch_alert_multichannel(request.dict())
-
-
-@app.get("/api/alerts/history")
-def get_alert_dispatch_history_endpoint():
-    """Return the audit ledger of all executed emergency broadcasts."""
-    return get_dispatch_history()
-
-
-@app.get("/api/terrain")
-def get_terrain():
-    """Return realistic terrain/DEM elevation data for map overlay across the Indian subcontinent."""
-    data = []
-    for i in range(GRID_SIZE):
-        lat = LAT_MIN + i * GRID_RESOLUTION
-        for j in range(GRID_SIZE):
-            lon = LON_MIN + j * GRID_RESOLUTION
-            # Physical elevation model of India
-            if lat > 28.0:
-                base_elev = 1500.0 + (lat - 28.0) * 850.0 + math.sin(lon * 0.5) * 400.0
-            elif 18.0 <= lat <= 28.0 and 74.0 <= lon <= 88.0:
-                base_elev = 120.0 + (lat - 18.0) * 15.0 + math.cos(lon * 0.3) * 60.0
-            elif lon < 76.0 and lat < 20.0:
-                base_elev = 600.0 + math.sin(lat * 0.8) * 400.0
-            else:
-                base_elev = 350.0 + math.sin(lat * 0.4 + lon * 0.4) * 180.0
-            elev = max(5.0, round(base_elev, 1))
-            data.append({
-                "lat": round(lat, 2),
-                "lon": round(lon, 2),
-                "elevation": elev
-            })
-    return data
-
-
 @app.get("/api/xai/{lat}/{lon}")
 def get_xai(lat: float, lon: float, event_id: str = "live"):
     """XAI breakdown for a specific grid cell."""
@@ -1642,21 +1384,6 @@ def get_cascade(forecast_hour: int = 2):
             {"name": "Response Tier", "tier": tier, "recommended_action": rec_action},
         ],
         "forecast_hour": forecast_hour,
-    }
-
-
-@app.get("/api/data-quality")
-def get_data_quality():
-    """Input data freshness and quality status."""
-    return {
-        "overall": "good",
-        "sources": {
-            "IMDAA_atmospheric": {"status": "fresh", "last_update": "2026-08-31T12:00:00Z", "coverage": "100%"},
-            "IMDAA_surface": {"status": "fresh", "last_update": "2026-08-31T12:00:00Z", "coverage": "100%"},
-            "terrain_DEM": {"status": "static", "resolution": "1.08°"},
-            "historical_events": {"status": "loaded", "count": len(HISTORICAL_EVENTS)},
-        },
-        "confidence_modifier": 1.0,
     }
 
 
@@ -1858,7 +1585,7 @@ def get_hazard_intelligence(lat: float = 30.73, lon: float = 79.06, forecast_hou
 
 @app.post("/api/ground-report")
 def submit_ground_report(report: GroundReportRequest):
-    """Citizen and First-Responder Crowdsourced Ground Validation Loop."""
+    """Citizen and First-Responder Crowdsourced Ground Validation Loop (Persisted in SQLite)."""
     predictions = get_real_prediction("flash_flood", 0, use_model=True)
     r, c = latlon_to_grid(report.lat, report.lon)
     model_prob = 0.0
@@ -1869,49 +1596,46 @@ def submit_ground_report(report: GroundReportRequest):
     match_status = "CONFIRMED_BY_GROUND_TRUTH" if model_prob > 0.4 else "MODEL_UNDERESTIMATION_CORRECTED"
     
     new_report = {
-        "id": f"rep_{len(ground_reports_db) + 101}",
+        "id": f"rep_{int(time.time() * 1000) % 1000000}",
         "lat": round(report.lat, 4),
         "lon": round(report.lon, 4),
-        "location_name": report.location_name,
+        "location_name": report.location_name or "Observation Point",
         "hazard_type": report.hazard_type,
         "severity": report.severity,
         "description": report.description,
-        "reporter_role": report.reporter_role,
+        "reporter_role": report.reporter_role or "Citizen Commuter",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "model_prob_at_location": round(model_prob, 3),
         "model_match": match_status,
         "verified": True
     }
-    ground_reports_db.insert(0, new_report)
+    try:
+        saved_report = save_ground_report(new_report)
+    except Exception as e:
+        logger.error(f"Failed to persist ground report: {e}")
+        saved_report = new_report
+
+    ground_reports_db.insert(0, saved_report)
     return {
         "status": "success",
         "message": "Ground-truth observation ingested into Agraan AI feedback loop.",
-        "report": new_report
+        "report": saved_report
     }
 
 
 @app.get("/api/ground-reports")
 def get_ground_reports(lat: Optional[float] = None, lon: Optional[float] = None):
-    """Retrieve verified ground-truth citizen reports."""
+    """Retrieve verified ground-truth citizen reports (from SQLite with memory fallback)."""
+    try:
+        persisted = get_persisted_ground_reports(lat, lon)
+        if persisted:
+            return persisted[:20]
+    except Exception as e:
+        logger.error(f"Failed to query ground reports from SQLite: {e}")
+
     if lat is not None and lon is not None:
         return [r for r in ground_reports_db if abs(r["lat"] - lat) < 1.5 and abs(r["lon"] - lon) < 1.5]
     return ground_reports_db[:20]
-
-
-@app.post("/api/alert-feedback")
-def submit_alert_feedback(feedback: AlertFeedbackRequest):
-    """Track alert fatigue and responder engagement."""
-    act = feedback.action.lower()
-    if act in alert_feedback_stats:
-        alert_feedback_stats[act] += 1
-    total = sum(alert_feedback_stats.values())
-    fatigue_index = round(alert_feedback_stats.get("dismissed", 0) / max(total, 1), 2)
-    return {
-        "status": "recorded",
-        "fatigue_index": fatigue_index,
-        "recommendation": "OPTIMAL_ENGAGEMENT" if fatigue_index < 0.25 else "CALIBRATE_HIGHER_THRESHOLD",
-        "stats": alert_feedback_stats
-    }
 
 
 @app.get("/api/model-report-card")
@@ -1939,137 +1663,6 @@ def get_model_report_card():
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# AGRAAN-AI: USER AUTHENTICATION & EMERGENCY SMS DISPATCH SYSTEM
-# ─────────────────────────────────────────────────────────────────────────────
-
-class UserRegisterPayload(BaseModel):
-    name: str
-    phone_number: str
-    latitude: float
-    longitude: float
-    location_name: Optional[str] = ""
-    sms_enabled: Optional[bool] = True
-
-
-class UserLoginPayload(BaseModel):
-    phone_number: str
-
-
-class CreateDisasterAlertPayload(BaseModel):
-    disaster_type: str
-    risk_score: float
-    severity: Optional[str] = "CRITICAL"
-    latitude: float
-    longitude: float
-    affected_radius_km: Optional[float] = 25.0
-    message: Optional[str] = ""
-
-
-class SendEmergencySmsPayload(BaseModel):
-    disaster_type: str
-    risk_score: float
-    latitude: float
-    longitude: float
-    affected_radius_km: Optional[float] = 25.0
-    location_name: Optional[str] = "Target Sector"
-    custom_message: Optional[str] = None
-
-
-@app.post("/api/users/register")
-def api_register_user(payload: UserRegisterPayload):
-    """Register a citizen or first-responder for location-aware emergency SMS alerts."""
-    try:
-        user = register_user(
-            name=payload.name,
-            phone_number=payload.phone_number,
-            latitude=payload.latitude,
-            longitude=payload.longitude,
-            location_name=payload.location_name or "",
-            sms_enabled=payload.sms_enabled if payload.sms_enabled is not None else True
-        )
-        return {
-            "status": "success",
-            "message": "User registered successfully for emergency alert network",
-            "user": user
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-@app.post("/api/users/login")
-def api_login_user(payload: UserLoginPayload):
-    """Log in existing registered user by mobile number."""
-    user = login_user(payload.phone_number)
-    if user:
-        return {"status": "success", "user": user}
-    return {
-        "status": "not_found",
-        "message": "No emergency subscription found with this phone number. Please register."
-    }
-
-
-@app.get("/api/users")
-def api_get_users():
-    """Retrieve all registered emergency subscribers."""
-    users = get_all_users()
-    return {"status": "success", "count": len(users), "users": users}
-
-
-@app.get("/api/alerts/affected-users")
-def api_get_affected_users(lat: float, lon: float, radius_km: float = 25.0):
-    """Calculate and return all registered citizens within the active hazard radius."""
-    affected = get_affected_users(lat, lon, radius_km)
-    return {
-        "status": "success",
-        "center": {"lat": lat, "lon": lon},
-        "radius_km": radius_km,
-        "affected_count": len(affected),
-        "users": affected
-    }
-
-
-@app.post("/api/alerts/create")
-def api_create_alert(payload: CreateDisasterAlertPayload):
-    """Create and persist a disaster alert in the database."""
-    alert = create_disaster_alert(
-        disaster_type=payload.disaster_type,
-        risk_score=payload.risk_score,
-        severity=payload.severity or "CRITICAL",
-        latitude=payload.latitude,
-        longitude=payload.longitude,
-        affected_radius_km=payload.affected_radius_km or 25.0,
-        message=payload.message or ""
-    )
-    return {"status": "success", "alert": alert}
-
-
-@app.post("/api/alerts/send-sms")
-def api_send_emergency_sms(payload: SendEmergencySmsPayload):
-    """
-    Operator-approved emergency SMS broadcast.
-    Finds all registered subscribers in radius, formats message, triggers Twilio/gateway,
-    and returns comprehensive delivery audit receipt.
-    """
-    receipt = dispatch_emergency_sms_alert(
-        disaster_type=payload.disaster_type,
-        risk_score=payload.risk_score,
-        latitude=payload.latitude,
-        longitude=payload.longitude,
-        affected_radius_km=payload.affected_radius_km or 25.0,
-        location_name=payload.location_name or "Target Sector",
-        custom_message=payload.custom_message
-    )
-    return {"status": "success", "receipt": receipt}
-
-
-@app.get("/api/alerts/sms-logs")
-def api_get_sms_logs(limit: int = 50):
-    """Retrieve the real-time emergency SMS dispatch audit log."""
-    logs = get_recent_sms_logs(limit=limit)
-    return {"status": "success", "count": len(logs), "logs": logs}
-
-
 @app.websocket("/ws/alerts")
 async def websocket_alerts(websocket: WebSocket):
     """Real-time alert stream via WebSocket reflecting live monitored city risks."""
@@ -2081,7 +1674,8 @@ async def websocket_alerts(websocket: WebSocket):
             await asyncio.sleep(12)  # Emit real evaluation every 12 seconds
             city = CITIES_CATALOG[city_idx % len(CITIES_CATALOG)]
             city_idx += 1
-            c_risks = calculate_coordinate_risks(city["lat"], city["lon"], 1)
+            # Run CPU-bound tensor risk calculation in threadpool to prevent event loop starvation
+            c_risks = await asyncio.to_thread(calculate_coordinate_risks, city["lat"], city["lon"], 1)
 
             # Map top risk hazard
             ff = c_risks["flash_flood"]
@@ -2101,6 +1695,10 @@ async def websocket_alerts(websocket: WebSocket):
             }
             await websocket.send_json(alert)
     except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        pass
+    finally:
         if websocket in connected_clients:
             connected_clients.remove(websocket)
 

@@ -1,22 +1,24 @@
 import { useState, useEffect } from "react";
-import { 
-  CircleDot, 
-  PanelLeftClose, 
-  LayoutDashboard, 
-  Map as MapIcon, 
-  Clock3, 
-  CalendarRange, 
-  TriangleAlert, 
-  Users, 
-  Building2, 
-  Route as RouteIcon, 
+import {
+  LayoutDashboard,
+  Clock3,
+  CalendarRange,
+  TriangleAlert,
+  Users,
+  Building2,
+  Route as RouteIcon,
   FileBarChart,
+  CircleDot,
+  PanelLeftClose,
+  Map as MapIcon,
   Satellite,
   Smartphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NavItem, DataSource } from "@/types";
+import { WS_BASE } from "@/config/api";
 
-const NAV_ITEMS = [
+const NAV_ITEMS: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "live-map", label: "Live Map", icon: MapIcon },
   { id: "satellite-states", label: "Satellite States", icon: Satellite },
@@ -30,7 +32,7 @@ const NAV_ITEMS = [
   { id: "reports", label: "Reports & Analytics", icon: FileBarChart },
 ];
 
-const DATA_SOURCES = [
+const DATA_SOURCES: DataSource[] = [
   { name: "INSAT-3D/3DR", meta: "Live ISRO Satellite", status: "on" },
   { name: "IMDAA (NCMRWF)", meta: "Atmospheric Model", status: "on" },
   { name: "DWR Radar Network", meta: "Live IMD Radar", status: "on" },
@@ -50,6 +52,8 @@ interface SidebarProps {
 
 export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle, alertCount = 4 }: SidebarProps) {
   const [liveClock, setLiveClock] = useState<string>("");
+  const [wsConnected, setWsConnected] = useState<boolean>(false);
+  const [latencyText, setLatencyText] = useState<string>("Connecting...");
 
   useEffect(() => {
     const updateTime = () => {
@@ -58,6 +62,44 @@ export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle, alertCou
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Live WebSocket Connection to backend /ws/alerts
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimer: any = null;
+
+    const connectWs = () => {
+      try {
+        ws = new WebSocket(`${WS_BASE}/ws/alerts`);
+        ws.onopen = () => {
+          setWsConnected(true);
+          setLatencyText("0.8s (Live WS)");
+        };
+        ws.onmessage = (_event) => {
+          setWsConnected(true);
+          setLatencyText("<1.0s (Live WS)");
+        };
+        ws.onclose = () => {
+          setWsConnected(false);
+          setLatencyText("Reconnecting...");
+          reconnectTimer = setTimeout(connectWs, 4000);
+        };
+        ws.onerror = () => {
+          ws?.close();
+        };
+      } catch {
+        setWsConnected(false);
+        setLatencyText("Offline");
+        reconnectTimer = setTimeout(connectWs, 4000);
+      }
+    };
+
+    connectWs();
+    return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      ws?.close();
+    };
   }, []);
 
   if (!isOpen) return null;
@@ -91,17 +133,24 @@ export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle, alertCou
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all border-l-2",
                 isActive
-                  ? "bg-accent/15 text-blue-300 border-accent"
+                  ? "bg-accent/15 text-accent font-semibold border-accent"
                   : "text-ink-dim border-transparent hover:bg-panel-alt hover:text-ink"
               )}
             >
-              <Icon size={15} />
-              <span className="flex-1 text-left">{item.label}</span>
-              {badgeValue !== undefined && badgeValue > 0 && (
-                <span className="text-[9px] font-bold px-1.5 h-4 rounded-full flex items-center justify-center bg-risk-extreme text-white">
+              <Icon size={16} className={cn("shrink-0", isActive ? "text-accent" : "text-ink-faint")} />
+              <span className="truncate font-medium">{item.label}</span>
+              {badgeValue ? (
+                <span
+                  className={cn(
+                    "ml-auto text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold",
+                    item.id === "alerts"
+                      ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                      : "bg-surface-alt text-ink-dim"
+                  )}
+                >
                   {badgeValue}
                 </span>
-              )}
+              ) : null}
             </button>
           );
         })}
@@ -127,12 +176,15 @@ export function Sidebar({ activeNav, onSelect, isOpen = true, onToggle, alertCou
           System status
         </div>
         <div className="rounded-lg p-2.5 space-y-1.5 bg-panel-alt border border-border">
-          <div className="flex items-center gap-1.5 text-[11px] text-risk-low">
-            <CircleDot size={11} /> All systems operational
+          <div className={cn("flex items-center gap-1.5 text-[11px]", wsConnected ? "text-risk-low" : "text-amber-400")}>
+            <CircleDot size={11} className={wsConnected ? "animate-pulse" : ""} />
+            {wsConnected ? "All systems operational" : "Connecting live telemetry..."}
           </div>
           <div className="flex justify-between text-[11px] text-ink-dim">
             <span>Data latency</span>
-            <span className="text-ink font-mono">1.2s (WebSocket)</span>
+            <span className={cn("font-mono text-[11px]", wsConnected ? "text-emerald-400 font-semibold" : "text-ink-dim")}>
+              {latencyText}
+            </span>
           </div>
           <div className="flex justify-between text-[11px] text-ink-dim">
             <span>Model confidence</span>

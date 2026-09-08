@@ -4,48 +4,75 @@
 
 @layer base {
   :root {
-    /* Light mode colors */
-    --color-bg: #f8fafc;
-    --color-panel: #ffffff;
-    --color-panel-alt: #f1f5f9;
-    --color-border: #e2e8f0;
-    --color-border-soft: #f1f5f9;
-    --color-ink: #0f172a;
-    --color-ink-dim: #475569;
-    --color-ink-faint: #64748b;
+    /* Ninja Theme Tokens (Light Mode) */
+    --color-bg: #f8f5f0;           /* Background: Warm Ivory / Sand */
+    --color-panel: #ffffff;        /* Card / Panel: Pure White */
+    --color-panel-alt: #f1ece3;    /* Panel Alt: Soft Sand / Oatmeal */
+    --color-border: #d9d0c5;       /* Border: Warm Sand / Beige */
+    --color-border-soft: #e8e2d8;  /* Soft Border */
+    --color-ink: #1a261d;          /* Heading / Text: Deep Forest Charcoal */
+    --color-ink-dim: #4d5e50;      /* Subtitle text: Soft Slate Evergreen */
+    --color-ink-faint: #788a7c;    /* Body copy: Muted Sage */
+    --color-accent: #246b38;       /* Primary: Deep Forest Green */
+    --color-accent-hover: #1b532b; /* Primary Hover */
+    --color-secondary: #dff2e3;    /* Secondary: Pale Mint Sage */
+    --color-muted-amber: #f5b35a;  /* Muted Accent: Warm Amber Gold */
+    --color-destructive: #c92a2a;  /* Destructive: Brick Red */
 
-    /* Shadcn UI tokens */
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 93%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --border: 214.3 31.8% 88%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 1rem;
+    /* Shadcn UI tokens (Ninja Theme) */
+    --background: 38 33% 96%;      /* #f8f5f0 */
+    --foreground: 137 20% 13%;     /* #1a261d */
+    --card: 0 0% 100%;             /* #ffffff */
+    --card-foreground: 137 20% 13%;/* #1a261d */
+    --primary: 137 49% 28%;        /* #246b38 Forest Green */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 133 46% 91%;      /* #dff2e3 Mint Sage */
+    --secondary-foreground: 137 45% 18%;
+    --muted: 34 89% 66%;           /* #f5b35a Warm Amber */
+    --muted-foreground: 34 20% 40%;
+    --accent: 133 46% 91%;
+    --accent-foreground: 137 45% 18%;
+    --destructive: 0 65% 48%;      /* #c92a2a Brick Red */
+    --destructive-foreground: 0 0% 100%;
+    --border: 34 19% 81%;          /* #d9d0c5 Warm Sand */
+    --ring: 137 49% 28%;           /* #246b38 Focus Ring */
+    --radius: 0.66rem;             /* 0.66rem as specified in Ninja theme */
   }
   
   .dark {
-    /* Dark mode colors */
-    --color-bg: #0a0e16;
-    --color-panel: #0f1420;
-    --color-panel-alt: #0c111c;
-    --color-border: #1c2434;
-    --color-border-soft: #161d2b;
-    --color-ink: #e7ebf3;
-    --color-ink-dim: #8b95ab;
-    --color-ink-faint: #5b6478;
+    /* Ninja Theme Tokens (Dark Mode) */
+    --color-bg: #0d1410;
+    --color-panel: #131d17;
+    --color-panel-alt: #18241d;
+    --color-border: #23352a;
+    --color-border-soft: #1a2820;
+    --color-ink: #eaf2eb;
+    --color-ink-dim: #9cb1a0;
+    --color-ink-faint: #6c8071;
+    --color-accent: #2ea043;
+    --color-accent-hover: #238636;
+    --color-secondary: #1b2e22;
+    --color-muted-amber: #f5b35a;
+    --color-destructive: #e04444;
 
-    /* Shadcn UI tokens */
-    --background: 224 71% 4%;
-    --foreground: 210 40% 98%;
-    --card: 224 71% 6%;
-    --card-foreground: 210 40% 98%;
-    --muted: 223 47% 11%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --border: 216 34% 17%;
-    --ring: 217.2 91.2% 59.8%;
+    /* Shadcn UI tokens (Ninja Dark Mode) */
+    --background: 145 22% 6%;
+    --foreground: 135 25% 93%;
+    --card: 145 20% 10%;
+    --card-foreground: 135 25% 93%;
+    --primary: 137 55% 41%;        /* #2ea043 Forest Green */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 142 26% 15%;      /* Deep Pine Mint */
+    --secondary-foreground: 135 25% 93%;
+    --muted: 34 89% 66%;           /* Warm Amber Gold */
+    --muted-foreground: 137 15% 65%;
+    --accent: 142 26% 15%;
+    --accent-foreground: 135 25% 93%;
+    --destructive: 0 74% 57%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 144 19% 18%;
+    --ring: 137 55% 41%;
+    --radius: 0.66rem;
   }
 }
 
@@ -95,4 +122,40 @@ body,
 .leaflet-tooltip.custom-district-badge::before {
   border-top-color: #000000 !important;
 }
+
+/* Satellite Dynamic Telemetry & Radar Beam Animations */
+@keyframes satelliteScanBeam {
+  0% {
+    top: -15%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.85;
+  }
+  85% {
+    opacity: 0.85;
+  }
+  100% {
+    top: 105%;
+    opacity: 0;
+  }
+}
+
+.animate-satellite-scan {
+  animation: satelliteScanBeam 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes radarConicSweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-radar-sweep {
+  animation: radarConicSweep 6s linear infinite;
+}
+
 
