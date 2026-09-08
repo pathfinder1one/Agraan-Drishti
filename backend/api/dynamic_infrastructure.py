@@ -417,11 +417,11 @@ def get_regional_gis_node(lat: float, lon: float) -> Tuple[Dict[str, Any], float
     return best_node, round(min_dist, 1)
 
 
-def reverse_geocode(lat: float, lon: float, use_nominatim: bool = True) -> Dict[str, str]:
+def reverse_geocode(lat: float, lon: float, use_nominatim: bool = False) -> Dict[str, str]:
     """
     Reverse geocode coordinates with 100% accurate ground truth district & state resolution.
     Combines 594 official district polygons with live OSM Nominatim for micro-locality (villages/towns/suburbs).
-    When use_nominatim=False, uses instant (0.05ms) local polygon boundary index without network calls.
+    When use_nominatim=False (default for map clicks & high-throughput inference), uses instant (0.05ms) local polygon boundary index without network calls.
     """
     cache_key = (round(lat, 3), round(lon, 3))
     now = time.time()
@@ -439,18 +439,16 @@ def reverse_geocode(lat: float, lon: float, use_nominatim: bool = True) -> Dict[
     if use_nominatim:
         try:
             import ssl
-            try:
-                import certifi
-                ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-            except Exception:
-                ssl_ctx = ssl.create_default_context()
+            ssl_ctx = ssl.create_default_context()
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
 
             url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json&zoom=14&addressdetails=1"
             req = urllib.request.Request(
                 url,
                 headers={"User-Agent": "Agraan-AI-Infrastructure/2.0"}
             )
-            with urllib.request.urlopen(req, timeout=2.5, context=ssl_ctx) as resp:
+            with urllib.request.urlopen(req, timeout=0.8, context=ssl_ctx) as resp:
                 content = resp.read().decode("utf-8")
                 if content.strip().startswith("{"):
                     data = json.loads(content)

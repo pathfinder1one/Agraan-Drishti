@@ -155,7 +155,7 @@ def compute_hyperlocal_nowcast_alerts(
     Evaluates real atmospheric sounding (Open-Meteo precipitation, CAPE, wind),
     terrain characteristics, and central SevereWeatherNet neural/physics coordinate risks.
     """
-    weather = fetch_realtime_weather(lat, lon)
+    weather = fetch_realtime_weather(lat, lon, only_if_cached=True) or {}
     dist_name, state_name = lookup_district_state(lat, lon)
     dist_name = dist_name or "Regional Sector"
     state_name = state_name or "India"
@@ -334,7 +334,7 @@ def get_unified_alerts(
 
     # 3. If zero hazards exist (safe area, no severe weather), return a genuine All Clear status
     if not unified:
-        weather = fetch_realtime_weather(lat or 22.0, lon or 78.0)
+        weather = fetch_realtime_weather(lat or 22.0, lon or 78.0, only_if_cached=True) or {}
         unified.append({
             "id": f"ALT-OK-{int(time.time())%1000:03d}",
             "title": f"Normal Atmospheric Conditions in {location_name or dist_name_raw or 'Monitored Sector'}",

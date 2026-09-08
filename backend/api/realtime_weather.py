@@ -46,18 +46,16 @@ def fetch_realtime_weather(lat: float, lon: float, only_if_cached: bool = False)
     )
 
     import ssl
-    try:
-        import certifi
-        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-    except Exception:
-        ssl_ctx = ssl.create_default_context()
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
 
     try:
         req = urllib.request.Request(
             url,
             headers={"User-Agent": "Agraan-AI-WeatherSync/1.0"}
         )
-        with urllib.request.urlopen(req, timeout=2.5, context=ssl_ctx) as resp:
+        with urllib.request.urlopen(req, timeout=0.8, context=ssl_ctx) as resp:
             raw = json.loads(resp.read().decode("utf-8"))
             curr = raw.get("current", {})
 

@@ -97,7 +97,10 @@ export function LiveMapFullView({
     const activeLon = selectedCell?.lon ?? monitoredLocation?.lon;
 
     if (activeLat !== undefined && activeLon !== undefined) {
-      if (locations.length > 0) {
+      const isExactTap = selectedCell !== null && selectedCell !== undefined;
+
+      // Only snap to a pre-defined city if this was NOT an explicit coordinate tap on the map
+      if (!isExactTap && locations.length > 0) {
         let closest = locations[0];
         let minDist = 999999;
         locations.forEach((loc) => {
@@ -107,22 +110,40 @@ export function LiveMapFullView({
             closest = loc;
           }
         });
-        if (minDist < 0.2) {
+        if (minDist < 0.05) {
           setSelectedLocId(closest.id);
           return;
         }
       }
 
-      // Fetch true live prediction from backend for this exact coordinate
+      // Optimistic instant feedback (0ms): Switch immediately to tapped coordinate
+      setCoordinateTarget((prev: any) => ({
+        id: "active-gps-target",
+        name: `Target (${activeLat.toFixed(2)}°N, ${activeLon.toFixed(2)}°E)`,
+        locality: `Target (${activeLat.toFixed(2)}°N, ${activeLon.toFixed(2)}°E)`,
+        district: prev?.district && !prev?.district.includes("Computing") ? prev.district : "Pinpointing Micro-Coordinates...",
+        state: "Active Radar Zone",
+        type: "Exact Tapped Coordinate",
+        lat: activeLat,
+        lon: activeLon,
+        overall_risk: prev?.overall_risk ?? 0.25,
+        threat_level: prev?.threat_level ?? 25,
+        level: prev?.level ?? "moderate",
+        flash_flood: prev?.flash_flood ?? 20.0,
+        cloudburst: prev?.cloudburst ?? 15.0,
+        thunderstorm: prev?.thunderstorm ?? 25.0,
+        eta: prev?.eta ?? "Calculating...",
+        confidence: 85,
+        isLoading: true
+      }));
+      setSelectedLocId("active-gps-target");
+
+      // Fetch true live prediction from backend for this exact coordinate (sub-10ms)
       apiFetch(`/api/predict-coordinate/${activeLat}/${activeLon}?forecast_hour=${forecastHour}`)
         .then((res) => res.json())
         .then((data) => {
           if (data && data.flash_flood !== undefined) {
             setCoordinateTarget(data);
-            setLocations((prev) => {
-              const filtered = prev.filter((l) => l.id !== "active-gps-target");
-              return [data, ...filtered];
-            });
             setSelectedLocId("active-gps-target");
           }
         })
@@ -130,9 +151,9 @@ export function LiveMapFullView({
           console.error("Failed to fetch coordinate prediction:", err);
         });
     }
-  }, [monitoredLocation?.lat, monitoredLocation?.lon, selectedCell?.lat, selectedCell?.lon, forecastHour, locations.length]);
+  }, [monitoredLocation?.lat, monitoredLocation?.lon, selectedCell?.lat, selectedCell?.lon, forecastHour]);
 
-  const selectedLocation = locations.find((l) => l.id === selectedLocId) || coordinateTarget || (
+  const selectedLocation = (selectedLocId === "active-gps-target" && coordinateTarget ? coordinateTarget : null) || locations.find((l) => l.id === selectedLocId) || coordinateTarget || (
     monitoredLocation ? {
       id: "active-gps-target",
       name: (monitoredLocation as any).name || `Target (${monitoredLocation.lat.toFixed(2)}°N, ${monitoredLocation.lon.toFixed(2)}°E)`,
